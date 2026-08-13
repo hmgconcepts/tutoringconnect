@@ -1,0 +1,5 @@
+# Tutoring Connect Generator
+
+This package is the GENERATOR (HMG Technologies / HMG Concepts).
+Open index.html then builder.html to stamp a client studio ZIP.
+Do not deploy this folder as a parent-facing portal.
