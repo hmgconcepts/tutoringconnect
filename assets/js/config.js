@@ -4,7 +4,7 @@ window.PRACTICE = {
   name: 'ADEWALE CLASSROOM',
   shortName: 'ADC',
   motto: 'Independent progress. Visible to parents. Built for Nigerian and international learners.',
-  theme: { id: 'adewale', primary: '#0f3d3e', accent: '#b8860b', primaryLight: '#14615f', accentLight: '#d4af37', bg: '#f6f1e7' },
+  theme: { id: 'sky', primary: '#0284c7', accent: '#0ea5e9', primaryLight: '#0ea5e9', accentLight: '#38bdf8', primaryDark: '#075985', bg: '#f0f9ff' },
   layout: 'academy',
   font: { id: 'plus', family: 'Plus Jakarta Sans', serif: 'Fraunces', css: 'Plus+Jakarta+Sans:wght@400;500;600;700;800|Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700;9..144,800' },
   address: 'Lagos, Nigeria — strictly virtual',

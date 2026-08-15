@@ -355,7 +355,17 @@ document.querySelectorAll('.preview-nav a').forEach(a=>a.onclick=e=>{e.preventDe
     cfg.currency = cfg.currency || '₦';
     cfg.logoUrl = cfg.logoUrl || 'assets/img/logo.svg';
     const theme = (window.TC && TC.THEMES || []).find(t => t.id === cfg.themeId) || (window.TC && TC.THEMES && TC.THEMES[0]) || { id: 'lumen', primary: '#134e4a', accent: '#d97706' };
-    cfg.theme = { id: theme.id, primary: theme.primary, accent: theme.accent };
+    // Preserve every shade the theme defines so the branded config and the
+    // CSS premium layer can use light/dark/bg variants.
+    cfg.theme = {
+      id: theme.id,
+      primary: theme.primary,
+      accent: theme.accent,
+      primaryLight: theme.primaryLight || theme.primary,
+      accentLight: theme.accentLight || theme.accent,
+      primaryDark: theme.primaryDark || theme.primary,
+      bg: theme.bg || '#f8fafc'
+    };
     const font = (window.TC && TC.FONTS || []).find(f => f.id === cfg.fontId) || (window.TC && TC.FONTS && TC.FONTS[0]);
     if (font) cfg.font = font;
     cfg.socials = {
