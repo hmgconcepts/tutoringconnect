@@ -99,8 +99,18 @@ console.log('[Tutoring Connect] config —', window.PRACTICE.name);
     let n = 0;
     for (const f of files) {
       if (f === 'index.html' || f === 'builder.html' || f === 'generator.js' || f === 'wizard.js') continue;
-      const txt = await this.load(f);
-      if (txt) zip.file(f, txt);
+      // Dotfiles (e.g. .nojekyll) may be legitimately empty — fetch the
+      // response directly so a 200 with an empty body is still included,
+      // while a genuine 404 is skipped.
+      if (f.startsWith('.')) {
+        try {
+          const res = await fetch(f, { cache: 'no-store' });
+          if (res.ok) zip.file(f, await res.text());
+        } catch (_) {}
+      } else {
+        const txt = await this.load(f);
+        if (txt) zip.file(f, txt);
+      }
       n++;
       if (onProgress) onProgress(n, files.length, f);
     }
@@ -115,10 +125,44 @@ console.log('[Tutoring Connect] config —', window.PRACTICE.name);
     zip.file('assets/js/config.js', this.configJS(cfg));
     zip.file('PRACTICE.json', JSON.stringify(cfg, null, 2));
     const origin = String(cfg.siteUrl || '').replace(/\/$/, '') || 'https://adewaleclassroom.example';
-    zip.file('robots.txt', 'User-agent: *\nAllow: /\nAllow: /about.html\nAllow: /apply.html\nAllow: /feature-guide.html\nAllow: /hmg-ecosystem.html\nDisallow: /admin-data.html\nDisallow: /safeguarding.html\nSitemap: ' + origin + '/sitemap.xml\n');
+    // SEO: allow the public marketing/application pages, disallow private ones.
+    zip.file('robots.txt', [
+      'User-agent: *',
+      'Allow: /',
+      'Allow: /about.html',
+      'Allow: /apply.html',
+      'Allow: /contact.html',
+      'Allow: /feature-guide.html',
+      'Allow: /hmg-ecosystem.html',
+      'Allow: /hmg-products.html',
+      'Allow: /developer.html',
+      'Allow: /exam-register.html',
+      'Allow: /public-book.html',
+      'Allow: /install.html',
+      'Disallow: /dashboard.html',
+      'Disallow: /admin-data.html',
+      'Disallow: /safeguarding.html',
+      'Disallow: /compliance.html',
+      'Disallow: /settings.html',
+      'Disallow: /approvals.html',
+      'Disallow: /activity-log.html',
+      'Disallow: /platform-health.html',
+      'Disallow: /storage.html',
+      'Disallow: /finance.html',
+      'Disallow: /payroll.html',
+      'Sitemap: ' + origin + '/sitemap.xml',
+      ''
+    ].join('\n'));
+    // SEO: list every public page so Google/Bing index the client site.
+    const publicUrls = ['/', '/about.html', '/contact.html', '/apply.html', '/feature-guide.html',
+      '/login.html', '/install.html', '/exam-register.html', '/public-book.html',
+      '/hmg-ecosystem.html', '/hmg-products.html', '/developer.html', '/flyer.html'];
+    const today = new Date().toISOString().slice(0, 10);
     zip.file('sitemap.xml', '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
-      + ['/', '/about.html', '/apply.html', '/feature-guide.html', '/login.html', '/hmg-ecosystem.html', '/hmg-products.html', '/developer.html', '/exam-register.html']
-        .map(p => '  <url><loc>' + origin + p + '</loc><changefreq>weekly</changefreq></url>').join('\n')
+      + publicUrls.map(p => {
+          const pri = (p === '/' ? '1.0' : (p === '/about.html' || p === '/apply.html' ? '0.9' : '0.7'));
+          return '  <url><loc>' + origin + p + '</loc><lastmod>' + today + '</lastmod><changefreq>weekly</changefreq><priority>' + pri + '</priority></url>';
+        }).join('\n')
       + '\n</urlset>\n');
     zip.file('manifest.json', JSON.stringify({
       name: cfg.name || 'ADEWALE CLASSROOM',
@@ -137,25 +181,157 @@ console.log('[Tutoring Connect] config —', window.PRACTICE.name);
     }
     return zip.generateAsync({ type: 'blob' });
   },
+  /* Build a standalone HTML preview of the CLIENT landing page (site-index.html
+     with branding substituted). Used by Wizard.previewLive(). */
+  pageIndex(cfg) {
+    const theme = cfg.theme || { primary: cfg.themePrimary || '#134e4a', accent: cfg.themeAccent || '#d97706' };
+    const fontCss = (cfg.fontCss || 'DM+Sans:wght@400;500;600;700;800|Source+Serif+4:wght@500;700;800');
+    const fontFamily = cfg.fontFamily || (cfg.font && cfg.font.family) || 'DM Sans';
+    const name = this._esc(cfg.name || cfg.schoolName || 'ADEWALE CLASSROOM');
+    const motto = this._esc(cfg.motto || cfg.schoolMotto || 'Independent progress. Visible to parents.');
+    const primary = theme.primary || '#134e4a';
+    const accent = theme.accent || '#d97706';
+    const fontLink = '<link href="https://fonts.googleapis.com/css2?family=' + fontCss + '" rel="stylesheet">';
+    return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${name} — official tutoring portal</title>
+<link rel="icon" type="image/svg+xml" href="assets/img/logo.svg">
+${fontLink}
+<style>
+:root{--primary:${primary};--accent:${accent};--tc-primary:${primary};--tc-accent:${accent}}
+body{margin:0;font-family:'${fontFamily}',system-ui,sans-serif;background:#f7f4ef;color:#0f172a;line-height:1.6}
+.hero{max-width:900px;margin:0 auto;padding:64px 24px;text-align:center}
+h1{font-family:Georgia,'Source Serif 4',serif;font-size:clamp(2rem,5vw,3.4rem);margin:.2em 0;color:${primary}}
+.serif{font-family:Georgia,'Source Serif 4',serif}
+.btn{display:inline-block;padding:12px 22px;border-radius:12px;text-decoration:none;font-weight:700;margin:6px;border:2px solid ${primary}}
+.btn-primary{background:${primary};color:#fff}.btn-outline{color:${primary};background:#fff}
+.muted{color:#475569}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;max-width:900px;margin:32px auto;padding:0 24px}
+.card{background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:20px;box-shadow:0 4px 14px rgba(15,23,42,.05)}
+.badge{display:inline-block;background:${accent};color:#fff;padding:6px 14px;border-radius:999px;font-weight:700;font-size:.85rem}
+</style></head><body>
+<header style="display:flex;justify-content:space-between;align-items:center;padding:18px 28px"><strong>${name}</strong><nav><a href="about.html" style="margin:0 8px;color:inherit">About</a><a href="apply.html" style="margin:0 8px;color:inherit">Apply</a></nav></header>
+<section class="hero">
+<span class="badge">🎓 Official tutoring portal</span>
+<h1>${name}</h1>
+<p class="serif" style="font-size:1.25rem">${motto}</p>
+<p><a class="btn btn-primary" href="login.html">Sign in to portal</a><a class="btn btn-outline" href="about.html">Learn more</a></p>
+</section>
+<div class="grid">
+<div class="card"><h3>100% family-safe RLS</h3><p class="muted">Siblings and groups never smear data. A parent sees only mapped children.</p></div>
+<div class="card"><h3>24/7 portal access</h3><p class="muted">Installable PWA with offline shell and class reminders.</p></div>
+<div class="card"><h3>4×7 booking cycles</h3><p class="muted">A full booking is 4 cycles of 7 days. Amount = rate × hours.</p></div>
+</div>
+<footer style="text-align:center;padding:32px;color:#64748b">Built with Tutoring Connect · HMG Technologies / HMG Concepts</footer>
+</body></html>`;
+  },
+
+  /* Build a full multi-page interactive preview inside one HTML document
+     (an iframe with a sidebar nav and sample data). Used by
+     Wizard.fullPreviewHtml(). The string __STYLE__ is replaced with the
+     real style.css by the caller. */
+  fullPreviewHtml(cfg) {
+    const name = this._esc(cfg.name || cfg.schoolName || 'ADEWALE CLASSROOM');
+    const modules = (cfg.modules || []).slice(0, 40);
+    const nav = modules.map((m, i) => {
+      const def = (window.TC && window.TC.MODULES || []).find(x => x.id === m);
+      const label = def ? def.name : m.replace(/_/g, ' ');
+      return '<a href="#" data-pg="' + i + '" style="display:block;padding:8px 12px;color:inherit;text-decoration:none;border-radius:8px">' + label + '</a>';
+    }).join('');
+    return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${name} — full preview</title><style>__STYLE__</style>
+<style>body{margin:0}.preview-shell{display:grid;grid-template-columns:240px 1fr;min-height:100vh}.preview-nav{background:var(--primary,#134e4a);color:#fff;padding:18px 10px;overflow:auto}.preview-nav a:hover{background:rgba(255,255,255,.12)}.preview-main{padding:28px;overflow:auto}.preview-bar{background:#fef3c7;color:#92400e;padding:10px 16px;font-size:.85rem}</style>
+</head><body><div class="preview-bar">🔎 Full preview — sample data only. Connect Supabase after download for live records.</div>
+<div class="preview-shell"><nav class="preview-nav"><strong style="display:block;padding:8px 12px 16px">${name}</strong>${nav}</nav>
+<main class="preview-main"><h1>${name}</h1><p class="muted">This is an interactive preview of the selected modules. Every page runs against sample data — no database is required to click around.</p>
+<div id="preview-page" class="app-content"></div></main></div>
+<script>
+const PAGES = ${JSON.stringify(modules)};
+const MODS = (window.TC && window.TC.MODULES) || [];
+document.querySelectorAll('.preview-nav a').forEach(a=>a.onclick=e=>{e.preventDefault();const i=+a.dataset.pg;const id=PAGES[i];const def=MODS.find(m=>m.id===id)||{};document.getElementById('preview-page').innerHTML='<div class=card><h2>'+(def.name||id)+'</h2><p class=muted>'+(def.desc||'')+'</p><p class=muted>Sample data preview.</p></div>';});
+</script></body></html>`;
+  },
+
+  _esc(s) {
+    return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  },
+
   writeModernScaffold(zip, cfg) {
     const name = cfg.name || 'ADEWALE CLASSROOM';
     const nl = String.fromCharCode(10);
-    zip.file('modern/README.md', '# ' + name + ' — modern delivery' + nl + nl +
-      'Traditional static files remain at the ZIP root.' + nl +
-      'modern/ is a Next.js wrapper (School Connect pattern).' + nl +
-      '1. cd modern && npm install' + nl +
-      '2. Copy root HTML + assets into modern/public/' + nl +
-      '3. npm run dev or deploy modern/ to Vercel.' + nl +
-      'Supabase + RLS stay the authority. No paid AI API.' + nl);
+    zip.file('modern/README.md', [
+      '# ' + name + ' - modern (Next.js) delivery',
+      '',
+      'The traditional static portal (HTML/CSS/JS at the ZIP root) remains the',
+      'source of truth. modern/ is an optional Next.js 14 wrapper that serves',
+      'those files with edge caching and gives a place for serverless routes.',
+      'Supabase + RLS stay the authority. No paid AI API.',
+      '',
+      'Quick start:',
+      '1. Copy the root portal files into modern/public/ (assets, *.html, sw.js, manifest, database).',
+      '2. cd modern && npm install',
+      '3. npm run dev (http://localhost:3000)',
+      '4. npm run build && npm start for production, or deploy modern/ to Vercel.',
+      '',
+      'Set SUPABASE_URL and SUPABASE_ANON_KEY env vars (never service_role).',
+      ''
+    ].join(nl));
     zip.file('modern/package.json', JSON.stringify({
-      private: true, name: 'tutoring-connect-modern',
-      scripts: { dev: 'next dev', build: 'next build', start: 'next start' },
+      private: true, name: 'tutoring-connect-modern', version: '1.0.0',
+      scripts: { dev: 'next dev', build: 'next build', start: 'next start', lint: 'next lint' },
       dependencies: { next: '14.2.5', react: '18.3.1', 'react-dom': '18.3.1' }
     }, null, 2));
-    zip.file('modern/next.config.js', 'module.exports = { trailingSlash: true };' + nl);
-    zip.file('modern/app/layout.js', 'export const metadata = { title: ' + JSON.stringify(name) + ' };' + nl +
-      'export default function RootLayout({ children }) { return children; }' + nl);
-    zip.file('modern/app/page.js', 'export default function Page(){ return null; }' + nl);
+    zip.file('modern/next.config.js', [
+      '/** @type {import("next").NextConfig} */',
+      'const nextConfig = {',
+      '  trailingSlash: true,',
+      '  reactStrictMode: true,',
+      '  async headers() {',
+      '    return [{ source: "/(.*)", headers: [',
+      '      { key: "X-Content-Type-Options", value: "nosniff" },',
+      '      { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },',
+      '      { key: "X-Frame-Options", value: "SAMEORIGIN" }',
+      '    ]}];',
+      '  }',
+      '};',
+      'module.exports = nextConfig;',
+      ''
+    ].join(nl));
+    zip.file('modern/.gitignore', 'node_modules/\n.next/\nout/\n.env*.local\n.vercel\n*.tsbuildinfo\n' + nl);
+    zip.file('modern/app/globals.css', '/* Real styles live in /public/assets/css/style.css */\n' + nl);
+    zip.file('modern/app/layout.js', [
+      'import "./globals.css";',
+      'export const metadata = {',
+      '  title: ' + JSON.stringify(name) + ',',
+      '  description: ' + JSON.stringify(cfg.motto || 'Independent tutoring portal.') + ',',
+      '};',
+      'export default function RootLayout({ children }) {',
+      '  return (<html lang="en"><body>{children}</body></html>);',
+      '}',
+      ''
+    ].join(nl));
+    zip.file('modern/app/page.js', [
+      '// The generated studio is a static PWA in /public; send users there.',
+      'export default function Page() {',
+      '  if (typeof window !== "undefined") window.location.replace("/index.html");',
+      '  return null;',
+      '}',
+      ''
+    ].join(nl));
+    zip.file('modern/app/api/keepalive/route.js', [
+      '// Keep-alive route hit by the Vercel cron (see vercel.json).',
+      'export async function GET() {',
+      '  const url = process.env.SUPABASE_URL, key = process.env.SUPABASE_ANON_KEY;',
+      '  if (!url || !key) return Response.json({ ok:false, error:"Set SUPABASE_URL and SUPABASE_ANON_KEY." }, { status:500 });',
+      '  try {',
+      '    const r = await fetch(url + "/rest/v1/rpc/tc_keep_alive", {',
+      '      method:"POST",',
+      '      headers:{ apikey:key, Authorization:"Bearer "+key, "Content-Type":"application/json" },',
+      '      body: JSON.stringify({ src:"modern-cron" })',
+      '    });',
+      '    return Response.json({ ok:r.ok, status:r.status, at:new Date().toISOString() });',
+      '  } catch(e){ return Response.json({ ok:false, error:String(e && e.message || e) }); }',
+      '}',
+      ''
+    ].join(nl));
   },
   estimate(cfg, addons) {
     const n = (cfg && cfg.modules && cfg.modules.length) || 0;
