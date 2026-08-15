@@ -124,8 +124,8 @@
         <div class="form-help">Traditional is the default free deploy. Modern adds a Next.js scaffold (School Connect pattern) without changing the portal or the database.</div>
       </div>
     </div>
-    <div id="addon-list" style="margin-top:16px"></div>
-    <div class="card" style="margin-top:12px"><div id="quote-lines"></div>
+    <div id="addon-list" style="display:none"></div>
+    <div class="card" style="margin-top:12px;display:none" id="quote-card"><div id="quote-lines"></div>
       <div style="display:flex;justify-content:space-between;font-weight:800;margin-top:8px"><span>Estimated total (one-off)</span><span id="quote-total">₦0</span></div>
       <a class="btn btn-sm btn-outline" style="margin-top:10px" target="_blank" href="https://wa.me/2348100866322?text=Hello%20HMG%2C%20I%20want%20a%20Tutoring%20Connect%20build.">Request on WhatsApp</a>
     </div>
@@ -165,13 +165,6 @@ document.addEventListener('input', e => {
     Wizard.config.levels = (e.target.value||'').split(',').map(s=>s.trim()).filter(Boolean);
   }
 });
-(function(){
-  var box=document.getElementById('addon-list');
-  if(box && window.Generator && Generator.PRICING){
-    box.innerHTML = Generator.PRICING.addons.map(a => '<label style="display:flex;gap:8px;align-items:center"><input type="checkbox" data-addon value="'+a.id+'" onchange="Wizard.recalcQuote()"> '+a.name+' <span style="margin-left:auto">₦'+a.price.toLocaleString()+'</span></label>').join('');
-  }
-  if (window.Wizard && Wizard.recalcQuote) Wizard.recalcQuote();
-})();
 </script>
 </body>
 </html>
