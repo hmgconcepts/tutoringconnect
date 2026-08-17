@@ -1,14 +1,18 @@
-/* ADEWALE CLASSROOM — generated Tutoring Connect studio (HMG Technologies / HMG Concepts). */
+/* Tutoring Connect — GENERATOR defaults (HMG Technologies / HMG Concepts).
+   BUGFIX: this file previously shipped a live client's identity (name, phone,
+   socials, WhatsApp number) inside the public generator repo. Every generated
+   ZIP overwrites this file via Generator.configJS(), so these values only ever
+   act as neutral generator-side defaults. Keep them unbranded. */
 window.TC = window.TC || {};
 window.PRACTICE = {
-  name: 'ADEWALE CLASSROOM',
-  shortName: 'ADC',
-  motto: 'Independent progress. Visible to parents. Built for Nigerian and international learners.',
+  name: 'Tutoring Connect',
+  shortName: 'TC',
+  motto: 'Give your tutoring studio a complete digital platform.',
   theme: { id: 'gosa', primary: '#0506ae', accent: '#964eec', primaryLight: '#4f46e5', accentLight: '#a78bfa', primaryDark: '#3730a3', bg: '#f8fafc' },
   layout: 'academy',
   font: { id: 'plusjakarta', family: 'Plus Jakarta Sans', serif: 'Plus Jakarta Sans', css: 'Plus+Jakarta+Sans:wght@400;500;600;700;800' },
   address: 'Lagos, Nigeria — strictly virtual',
-  phone: '2348100866322',
+  phone: '',
   email: '',
   siteUrl: '',
   timezone: 'Africa/Lagos',
@@ -17,12 +21,12 @@ window.PRACTICE = {
   logoUrl: 'assets/img/logo.svg',
   socials: {
     facebook: '',
-    instagram: 'https://instagram.com/cssadewale',
-    x: 'https://x.com/cssadewale',
-    linkedin: 'https://linkedin.com/in/adewalesamsonadeagbo',
+    instagram: '',
+    x: '',
+    linkedin: '',
     youtube: 'https://youtube.com/@hmgconcepts',
     tiktok: '',
-    whatsapp: 'https://wa.me/2348100866322'
+    whatsapp: ''
   },
   hmg: {
     concepts: 'https://hmgconcepts.pages.dev/',
@@ -51,4 +55,4 @@ if (window.supabase && SUPABASE_URL && !SUPABASE_URL.includes('YOUR_') && SUPABA
 window.TC_CONFIRM_FREE_EMAIL = true;
 window.TC_CONFIRM_FREE_WA = true;
 window.TC_CONFIRM_FREE_SMS = true;
-console.log('[ADEWALE CLASSROOM] Tutoring Connect by HMG Technologies / HMG Concepts');
+console.log('[Tutoring Connect] generator defaults — HMG Technologies / HMG Concepts');

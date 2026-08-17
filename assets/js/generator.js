@@ -1,16 +1,5 @@
 /* In-browser ZIP generator — emits a parent-facing client site (never the builder). */
 const Generator = {
-  PRICING: {
-    currency: '₦',
-    base: 35000,
-    perModule: 4500,
-    addons: [
-      { id: 'onboarding', name: 'Onboarding & training call', price: 15000 },
-      { id: 'custom_theme', name: 'Custom theme from brand guide', price: 12000 },
-      { id: 'data_import', name: 'Learner / parent CSV import', price: 10000 },
-      { id: 'drive_setup', name: 'Google Drive backup setup', price: 8000 }
-    ]
-  },
   pageFile(id) {
     const m = (window.TC.MODULES || []).find(x => x.id === id);
     return m ? m.file : id.replace(/_/g, '-') + '.html';
@@ -21,7 +10,7 @@ const Generator = {
     return res.text();
   },
   configJS(cfg) {
-    const theme = cfg.theme || { id: 'lumen', primary: '#134e4a', accent: '#d97706' };
+    const theme = cfg.theme || { id: 'hmg', primary: '#0506ae', accent: '#964eec' };
     return `window.TC = window.TC || {};
 window.PRACTICE = ${JSON.stringify({
       name: cfg.name, shortName: cfg.shortName || cfg.name, motto: cfg.motto || '',
@@ -64,16 +53,49 @@ console.log('[Tutoring Connect] config —', window.PRACTICE.name);
     'assets/js/media.js','assets/js/brand.js','assets/js/notifications.js','assets/js/pwa-install.js',
     'assets/js/site-help.js','assets/js/assistant-kb.js','assets/js/ics.js','assets/js/chatbot.js','assets/js/ai-assistant.js','assets/js/security-guard.js',
     'assets/js/voting.js','assets/js/enterprise.js','assets/js/analytics.js',
+    'assets/js/theme-engine.js','assets/js/auth-guard.js','assets/js/page-guide.js','assets/js/seo.js','assets/js/keepalive-monitor.js','assets/js/schema-doctor.js','assets/js/quota-guard.js',
+    'assets/css/layouts.css',
+    'docs/SEO-GUIDE.md','docs/PAGE-DIRECTORY.md','docs/KEEP-ALIVE-GUIDE.md','tools/keepalive.gs',
     'database/complete-schema.sql','database/keep-alive.sql','database/drive-sync.sql',
     'database/storage-offload.sql','database/v2-tutoring-ops.sql','database/v3-classroom-exams.sql',
     'database/v4-enterprise-parity.sql','database/v5-ops-parity.sql','database/v6-cbt-modes.sql',
+    'database/v7-family-access-fix.sql','database/v9-keepalive-and-drive.sql','database/v12-quota-guard.sql',
     'DEPLOYMENT-GUIDE.md','README.md','FEATURE-CATALOG.md','SUPABASE_FREE_TIER_PROTECTION.md',
     'docs/GOOGLE-DRIVE-SYNC-GUIDE.md','docs/ONBOARDING-GUIDE.md','docs/INSIGHTS-METHODOLOGY.md',
     'manifest.json','sw.js','robots.txt','sitemap.xml','_headers','.nojekyll',
     'api/keepalive.js','vercel.json',
     '.github/workflows/keep-supabase-alive.yml',
-    '.github/workflows/supabase-auto-restore.yml',
+    '.github/workflows/supabase-auto-restore.yml','.github/workflows/keepalive-watchdog.yml','.github/workflows/db-backup.yml',
     'supabase/functions/ping/index.ts'
+  ],
+  ALL_PAGES: [
+    'about.html','accommodations.html','activity-log.html','admin-data.html','analytics.html',
+    'announcements.html','application-links.html','apply.html','approvals.html',
+    'assignments.html','at-risk.html','attendance.html','availability.html','birthdays.html',
+    'bookings.html','broadcasts.html','calendar.html','cancellations.html','cbt-exam.html',
+    'cbt-multi.html','cbt-prompts.html','cbt-review.html','certificates.html',
+    'change-password.html','classwork.html','complaints.html','compliance.html','contact.html',
+    'curriculum.html','dashboard.html','developer.html','diagnostics.html','directory.html',
+    'documents.html','engagements.html','eresources.html','events.html','exam-links.html',
+    'exam-register.html','exam-targets.html','feature-guide.html','fees.html','finance.html',
+    'flashcards.html','flyer.html','forgot-password.html','forum.html','gallery.html',
+    'gamification.html','goals.html','group-insights.html','groups.html','helpdesk.html',
+    'hmg-ecosystem.html','hmg-products.html','idcards.html','inbox.html','index.html',
+    'inquiries.html','insights.html','install.html','invoices.html','learner-360.html',
+    'learners.html','learning-styles.html','leave.html','lesson-plans.html','library.html',
+    'license.html','lms.html','login.html','makeup-credits.html','makeups.html','mastery.html',
+    'meetings.html','messages.html','methodologies.html','notifications.html','offline.html',
+    'onboarding.html','packages.html','parent-meetings.html','parents.html',
+    'payment-history.html','payments.html','payroll.html','platform-health.html',
+    'policies.html','polls.html','portfolio.html','practice.html','predictions.html',
+    'products.html','profile.html','progress-reports.html','public-book.html','reading.html',
+    'referrals.html','reminders.html','resources.html','reviews.html','rooms.html',
+    'rubrics.html','safeguarding.html','scholarships.html','scoresheet.html',
+    'session-complete.html','session-notes.html','sessions.html','settings.html',
+    'site-index.html','sow.html','status-manager.html','storage.html','stream.html',
+    'study-log.html','subjects.html','substitutions.html','surveys.html','timezones.html',
+    'transcripts.html','trials.html','tutors.html','value-added.html','voting.html',
+    'waitlist.html','whiteboard.html'
   ],
   ALWAYS_PAGES: [
     'engagements.html','learners.html','insights.html','learner-360.html','calendar.html',
@@ -88,6 +110,20 @@ console.log('[Tutoring Connect] config —', window.PRACTICE.name);
   async go(cfg, onProgress) {
     if (!window.JSZip) throw new Error('JSZip did not load. Check your network (CDN).');
     const zip = new JSZip();
+    // V8: remember every file we actually wrote, so the build can (a) mirror
+    // itself into modern/public automatically and (b) emit an honest manifest
+    // instead of the operator having to trust that the ZIP is complete.
+    const written = [];
+    const _origFile = zip.file.bind(zip);
+    zip.file = function (name, data, opts) {
+      // CRITICAL: JSZip.file() is BOTH a getter and a setter and it switches on
+      // arguments.length, not on whether data is undefined. Forwarding an
+      // explicit `undefined` turns a read into a write and silently blanks the
+      // file. Preserve the original arity exactly.
+      if (arguments.length <= 1) return _origFile(name);
+      if (typeof name === 'string') written.push(name);
+      return _origFile(name, data, opts);
+    };
     const files = this.ALWAYS_FILES.slice();
     const selected = new Set(cfg.modules || []);
     (window.TC.MODULES || []).forEach(m => {
@@ -96,6 +132,13 @@ console.log('[Tutoring Connect] config —', window.PRACTICE.name);
       }
     });
     this.ALWAYS_PAGES.forEach(f => { if (!files.includes(f)) files.push(f); });
+    // V8: an "all-inclusive" build ships every page that exists, so a client is
+    // never missing a screen a nav link points at. Module selection now controls
+    // what is *shown in the menu*, not what is present on disk — this removes a
+    // whole class of 404s that used to depend on wizard checkboxes.
+    if (cfg.allInclusive !== false) {
+      this.ALL_PAGES.forEach(f => { if (!files.includes(f)) files.push(f); });
+    }
     let n = 0;
     for (const f of files) {
       if (f === 'index.html' || f === 'builder.html' || f === 'generator.js' || f === 'wizard.js') continue;
@@ -124,46 +167,93 @@ console.log('[Tutoring Connect] config —', window.PRACTICE.name);
     if (clientIndex) zip.file('index.html', clientIndex);
     zip.file('assets/js/config.js', this.configJS(cfg));
     zip.file('PRACTICE.json', JSON.stringify(cfg, null, 2));
-    const origin = String(cfg.siteUrl || '').replace(/\/$/, '') || 'https://adewaleclassroom.example';
-    // SEO: allow the public marketing/application pages, disallow private ones.
+    const origin = String(cfg.siteUrl || '').replace(/\/$/, '') || 'https://your-studio.example';
+    const today = new Date().toISOString().slice(0, 10);
+
+    // ---- SEO: pages we WANT indexed. Everything else is explicitly disallowed
+    // so a parent dashboard or a safeguarding log can never reach a search index.
+    const PUBLIC_URLS = [
+      ['/', '1.0', 'weekly'], ['/index.html', '1.0', 'weekly'], ['/about.html', '0.9', 'monthly'],
+      ['/apply.html', '0.9', 'monthly'], ['/contact.html', '0.8', 'monthly'],
+      ['/feature-guide.html', '0.7', 'monthly'], ['/install.html', '0.6', 'yearly'],
+      ['/exam-register.html', '0.7', 'monthly'], ['/public-book.html', '0.7', 'monthly'],
+      ['/login.html', '0.5', 'yearly'], ['/site-index.html', '0.5', 'monthly'],
+      ['/hmg-ecosystem.html', '0.5', 'yearly'], ['/hmg-products.html', '0.5', 'yearly'],
+      ['/developer.html', '0.4', 'yearly'], ['/flyer.html', '0.4', 'yearly']
+    ];
+    const PRIVATE = ['/dashboard.html','/admin-data.html','/safeguarding.html','/compliance.html',
+      '/settings.html','/approvals.html','/activity-log.html','/platform-health.html','/storage.html',
+      '/finance.html','/payroll.html','/invoices.html','/payments.html','/scoresheet.html',
+      '/learners.html','/parents.html','/learner-360.html','/insights.html','/inbox.html',
+      '/messages.html','/session-notes.html','/profile.html','/engagements.html'];
+
     zip.file('robots.txt', [
+      '# ' + (cfg.name || 'Tutoring studio') + ' - generated by Tutoring Connect (HMG Technologies)',
       'User-agent: *',
-      'Allow: /',
-      'Allow: /about.html',
-      'Allow: /apply.html',
-      'Allow: /contact.html',
-      'Allow: /feature-guide.html',
-      'Allow: /hmg-ecosystem.html',
-      'Allow: /hmg-products.html',
-      'Allow: /developer.html',
-      'Allow: /exam-register.html',
-      'Allow: /public-book.html',
-      'Allow: /install.html',
-      'Disallow: /dashboard.html',
-      'Disallow: /admin-data.html',
-      'Disallow: /safeguarding.html',
-      'Disallow: /compliance.html',
-      'Disallow: /settings.html',
-      'Disallow: /approvals.html',
-      'Disallow: /activity-log.html',
-      'Disallow: /platform-health.html',
-      'Disallow: /storage.html',
-      'Disallow: /finance.html',
-      'Disallow: /payroll.html',
+      ...PUBLIC_URLS.filter(u => u[0] !== '/').map(u => 'Allow: ' + u[0]),
+      ...PRIVATE.map(p => 'Disallow: ' + p),
+      '',
+      '# Major engines - explicit, so indexing is never ambiguous',
+      'User-agent: Googlebot', 'Allow: /', ...PRIVATE.map(p => 'Disallow: ' + p), '',
+      'User-agent: Bingbot', 'Allow: /', ...PRIVATE.map(p => 'Disallow: ' + p), '',
+      'User-agent: DuckDuckBot', 'Allow: /', '',
+      'User-agent: Slurp', 'Allow: /', '',
       'Sitemap: ' + origin + '/sitemap.xml',
+      'Host: ' + origin.replace(/^https?:\/\//, ''),
       ''
     ].join('\n'));
-    // SEO: list every public page so Google/Bing index the client site.
-    const publicUrls = ['/', '/about.html', '/contact.html', '/apply.html', '/feature-guide.html',
-      '/login.html', '/install.html', '/exam-register.html', '/public-book.html',
-      '/hmg-ecosystem.html', '/hmg-products.html', '/developer.html', '/flyer.html'];
-    const today = new Date().toISOString().slice(0, 10);
-    zip.file('sitemap.xml', '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
-      + publicUrls.map(p => {
-          const pri = (p === '/' ? '1.0' : (p === '/about.html' || p === '/apply.html' ? '0.9' : '0.7'));
-          return '  <url><loc>' + origin + p + '</loc><lastmod>' + today + '</lastmod><changefreq>weekly</changefreq><priority>' + pri + '</priority></url>';
-        }).join('\n')
-      + '\n</urlset>\n');
+
+    zip.file('sitemap.xml',
+      '<?xml version="1.0" encoding="UTF-8"?>\n' +
+      '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
+      PUBLIC_URLS.filter(u => u[0] !== '/index.html').map(u =>
+        '  <url><loc>' + origin + u[0] + '</loc><lastmod>' + today +
+        '</lastmod><changefreq>' + u[2] + '</changefreq><priority>' + u[1] + '</priority></url>'
+      ).join('\n') + '\n</urlset>\n');
+
+    // Google/Bing verification placeholders the studio can fill in later.
+    zip.file('SEO-SETUP.md', [
+      '# Getting ' + (cfg.name || 'this studio') + ' found on Google and Bing',
+      '',
+      'The site already ships everything an engine needs: sitemap.xml, robots.txt,',
+      'canonical URLs, Open Graph cards and schema.org JSON-LD (injected by',
+      'assets/js/seo.js). You only have to tell the engines it exists.',
+      '',
+      '## 1. Set your real domain (2 minutes)',
+      'Open assets/js/config.js and set siteUrl to your live address, e.g.',
+      '    siteUrl: "https://' + ((cfg.shortName || 'studio') + '').toLowerCase().replace(/[^a-z0-9]/g, '') + '.vercel.app"',
+      'Redeploy. Canonical tags and the sitemap use this value.',
+      '',
+      '## 2. Google Search Console',
+      '1. Go to https://search.google.com/search-console and add your URL prefix.',
+      '2. Verify with the HTML tag method - paste the meta tag into index.html <head>.',
+      '3. Sitemaps -> add "sitemap.xml" -> Submit.',
+      '4. URL Inspection -> paste your homepage -> Request indexing.',
+      '',
+      '## 3. Bing / Microsoft Webmaster Tools',
+      '1. Go to https://www.bing.com/webmasters and add the site.',
+      '2. Import from Google Search Console (fastest) or verify with the meta tag.',
+      '3. Submit sitemap.xml. Bing also powers DuckDuckGo and Yahoo.',
+      '',
+      '## 4. Make the studio easy to find by name',
+      '- Put the exact studio name in the page title (already done).',
+      '- Add the site link to your WhatsApp Business profile, Instagram bio and',
+      '  Facebook page - social links are read as sameAs signals in the JSON-LD.',
+      '- Ask your first families for a Google review if you have a Business Profile.',
+      '',
+      '## 5. HMG ecosystem cross-linking',
+      'Every page footer links to HMG Concepts, HMG Technologies, HMG Academy,',
+      'HMG Media, HMG Gospel and the founder site, and the JSON-LD declares',
+      'HMG Concepts as the parentOrganization. That reciprocal linking helps both',
+      'this studio and the wider ecosystem rank.',
+      '',
+      '## 6. Check it worked',
+      '- Rich results: https://search.google.com/test/rich-results',
+      '- Share the link in WhatsApp - you should see a preview card with the logo.',
+      '- Search: site:' + origin.replace(/^https?:\/\//, '') + ' (after a few days)',
+      ''
+    ].join('\n'));
+
     zip.file('manifest.json', JSON.stringify({
       name: cfg.name || 'ADEWALE CLASSROOM',
       short_name: cfg.shortName || 'ADC',
@@ -178,8 +268,61 @@ console.log('[Tutoring Connect] config —', window.PRACTICE.name);
     }, null, 2));
     if (String(cfg.buildType || cfg.build_type || '').toLowerCase() === 'modern') {
       this.writeModernScaffold(zip, cfg);
+      // V8 FIX: the modern README used to tell the operator to "copy the root
+      // portal files into modern/public/" by hand. A build that needs manual
+      // assembly is not a build. Mirror everything automatically instead.
+      const skip = /^modern\//;
+      const mirrored = [];
+      for (const name of written.slice()) {
+        if (skip.test(name)) continue;
+        const f = zip.file(name);
+        if (!f) continue;
+        try {
+          const isBin = /\.(png|jpg|jpeg|gif|ico|woff2?|ttf)$/i.test(name);
+          const data = await (isBin ? f.async('arraybuffer') : f.async('string'));
+          _origFile('modern/public/' + name, data);
+          mirrored.push(name);
+        } catch (_) {}
+      }
+      _origFile('modern/public/.mirrored', mirrored.length + ' files mirrored from the traditional build\n');
+      zip._tcMirrored = mirrored.length;
     }
-    return zip.generateAsync({ type: 'blob' });
+
+    // ---- BUILD MANIFEST: a verifiable record of what this ZIP contains ----
+    // Several files are written twice on purpose (fetched from the generator,
+    // then overwritten with a rebranded version: manifest.json, robots.txt,
+    // sitemap.xml). Dedupe so the manifest reports what the ZIP really holds.
+    const uniq = Array.from(new Set(written));
+    const grouped = {};
+    uniq.forEach(n => {
+      const k = n.indexOf('/') === -1 ? '(root)' : n.split('/')[0];
+      (grouped[k] = grouped[k] || []).push(n);
+    });
+    _origFile('BUILD-MANIFEST.json', JSON.stringify({
+      studio: cfg.name || '',
+      shortName: cfg.shortName || '',
+      generatedAt: new Date().toISOString(),
+      generator: 'Tutoring Connect V8 (HMG Technologies)',
+      buildType: String(cfg.buildType || 'traditional').toLowerCase(),
+      allInclusive: cfg.allInclusive !== false,
+      theme: (cfg.theme && cfg.theme.id) || null,
+      font: (cfg.font && cfg.font.id) || null,
+      layout: cfg.layout || null,
+      supabaseConfigured: !!(cfg.supabaseUrl && cfg.supabaseKey),
+      counts: {
+        total: uniq.length,
+        pages: uniq.filter(f => /\.html$/.test(f) && f.indexOf('/') === -1).length,
+        scripts: uniq.filter(f => /^assets\/js\//.test(f)).length,
+        styles: uniq.filter(f => /^assets\/css\//.test(f)).length,
+        sql: uniq.filter(f => /^database\//.test(f)).length,
+        docs: uniq.filter(f => /\.md$/.test(f)).length
+      },
+      mirroredToModernPublic: zip._tcMirrored || 0,
+      byFolder: Object.keys(grouped).sort().reduce((a, k) => (a[k] = grouped[k].length, a), {}),
+      files: uniq.slice().sort()
+    }, null, 2));
+
+    return zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 6 } });
   },
   /* Build a standalone HTML preview of the CLIENT landing page (site-index.html
      with branding substituted). Used by Wizard.previewLive(). */
@@ -266,10 +409,12 @@ document.querySelectorAll('.preview-nav a').forEach(a=>a.onclick=e=>{e.preventDe
       'Supabase + RLS stay the authority. No paid AI API.',
       '',
       'Quick start:',
-      '1. Copy the root portal files into modern/public/ (assets, *.html, sw.js, manifest, database).',
-      '2. cd modern && npm install',
-      '3. npm run dev (http://localhost:3000)',
-      '4. npm run build && npm start for production, or deploy modern/ to Vercel.',
+      'The portal files are ALREADY mirrored into modern/public/ by the generator,',
+      'so there is nothing to copy by hand.',
+      '',
+      '1. cd modern && npm install',
+      '2. npm run dev   (http://localhost:3000)',
+      '3. npm run build && npm start for production, or deploy modern/ to Vercel.',
       '',
       'Set SUPABASE_URL and SUPABASE_ANON_KEY env vars (never service_role).',
       ''
@@ -333,19 +478,6 @@ document.querySelectorAll('.preview-nav a').forEach(a=>a.onclick=e=>{e.preventDe
       ''
     ].join(nl));
   },
-  estimate(cfg, addons) {
-    const n = (cfg && cfg.modules && cfg.modules.length) || 0;
-    const lines = [
-      { label: 'Base studio platform', amount: this.PRICING.base },
-      { label: n + ' selected modules', amount: n * this.PRICING.perModule }
-    ];
-    (addons || []).forEach(id => {
-      const a = this.PRICING.addons.find(x => x.id === id);
-      if (a) lines.push({ label: a.name, amount: a.price });
-    });
-    const total = lines.reduce((s, l) => s + l.amount, 0);
-    return { currency: this.PRICING.currency, lines, total };
-  },
   normalizeCfg(cfg) {
     cfg = Object.assign({}, cfg || {});
     cfg.name = cfg.name || cfg.schoolName || 'ADEWALE CLASSROOM';
@@ -354,7 +486,7 @@ document.querySelectorAll('.preview-nav a').forEach(a=>a.onclick=e=>{e.preventDe
     cfg.timezone = cfg.timezone || 'Africa/Lagos';
     cfg.currency = cfg.currency || '₦';
     cfg.logoUrl = cfg.logoUrl || 'assets/img/logo.svg';
-    const theme = (window.TC && TC.THEMES || []).find(t => t.id === cfg.themeId) || (window.TC && TC.THEMES && TC.THEMES[0]) || { id: 'lumen', primary: '#134e4a', accent: '#d97706' };
+    const theme = (window.TC && TC.THEMES || []).find(t => t.id === cfg.themeId) || (window.TC && TC.THEMES && TC.THEMES[0]) || { id: 'hmg', primary: '#0506ae', accent: '#964eec' };
     // Preserve every shade the theme defines so the branded config and the
     // CSS premium layer can use light/dark/bg variants.
     cfg.theme = {

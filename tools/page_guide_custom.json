@@ -1,0 +1,134 @@
+{
+ "index.html": {
+  "purpose": "The public front door of the studio. It introduces the practice to a parent who has never met you, states the core promise — independent progress that a parent can actually see — and drives two actions: sign in, or request a place.",
+  "audience": "Anyone on the internet. No sign-in required.",
+  "why": "This is the page that converts a stranger into an enquiry. It is also the page search engines rank, so it carries the studio's structured data and social preview.",
+  "how": [
+   "Read the promise and the proof statistics.",
+   "Click <b>Sign in to portal</b> if you already have an account.",
+   "Click <b>Request a place</b> to submit an application — it takes about two minutes.",
+   "Accept the install prompt to add the studio to your home screen."
+  ],
+  "connects": "Feeds login.html and apply.html, and links out to the HMG Concepts ecosystem in the footer."
+ },
+ "login.html": {
+  "purpose": "The single entry point to the private portal. It signs in parents, learners, tutors and admins, and offers password recovery and a route to apply.",
+  "audience": "Everyone who has an account.",
+  "why": "Every privacy guarantee in the product begins here. The role attached to your account decides what the database will and will not return for the rest of your session.",
+  "how": [
+   "Enter your email — or a learner's student ID such as TC-0001 — and your password.",
+   "Use <b>Forgot password</b> to get a secure reset link by email.",
+   "New families should use <b>Apply</b> instead; accounts require admin approval before they open.",
+   "After sign-in you land on the dashboard built for your role."
+  ],
+  "connects": "The gateway to every protected page. Each sign-in and sign-out is written to the login audit trail."
+ },
+ "dashboard.html": {
+  "purpose": "Your personalised home screen, and the most role-aware page in the studio. An owner sees studio-wide KPIs, cash position and at-risk learners. A tutor sees today's classes, attendance to mark and work to grade. A parent sees the next class, the latest scores and the balance owing. A learner sees homework, reading and quizzes due.",
+  "audience": "Every signed-in role — the same URL renders a completely different page per role.",
+  "why": "It is the daily habit that keeps families engaged. A parent who opens this page each week and sees movement is a parent who renews.",
+  "how": [
+   "Read the KPI tiles across the top for the headline position.",
+   "Use the quick-link tiles to jump straight into a module.",
+   "Check the alert strip for at-risk learners, unpaid invoices or an hour bank about to run dry.",
+   "Open the bell for anything new since your last visit."
+  ],
+  "connects": "The hub of the entire studio — it links to every module that has been enabled."
+ },
+ "about.html": {
+  "purpose": "Explains who runs the studio, the teaching philosophy and the track record. A credibility page for a parent comparing two or three tutors before committing.",
+  "audience": "Public.",
+  "why": "Tutoring is a trust purchase. Parents read this page before they read your prices.",
+  "how": [
+   "Read the studio story, the approach and the credentials.",
+   "Follow the call to action to apply or sign in."
+  ],
+  "connects": "Linked from the landing page and every footer; indexed for search."
+ },
+ "contact.html": {
+  "purpose": "Every way to reach the studio — WhatsApp, email, phone and social — plus an enquiry form that lands directly in the staff CRM.",
+  "audience": "Public.",
+  "why": "A parent who cannot reach you in under a minute contacts the next tutor on their list.",
+  "how": [
+   "Choose the channel you prefer; WhatsApp and email open your own device app.",
+   "Or submit the form and the studio replies from the Inquiries board."
+  ],
+  "connects": "Writes to the inquiries table, which staff triage in the Inquiries/CRM module."
+ },
+ "forgot-password.html": {
+  "purpose": "Sends a secure password-reset link by email through Supabase Auth. Nobody at the studio can see or set your password.",
+  "audience": "Anyone locked out of their account.",
+  "why": "Self-service recovery keeps the admin out of the credential business entirely, which is both safer and less work.",
+  "how": [
+   "Type the email address on your account.",
+   "Open the email and click the link — it expires shortly.",
+   "Choose a new password; the strength meter shows you when it is strong enough."
+  ],
+  "connects": "Pairs with login.html and change-password.html."
+ },
+ "change-password.html": {
+  "purpose": "Change your password while signed in, with a live strength meter that scores length, case mixing, digits and symbols.",
+  "audience": "Every signed-in user.",
+  "why": "Shared family devices are common. A periodic password change, plus the idle auto-lock, is what keeps a portal safe on a household laptop.",
+  "how": [
+   "Enter your current password, then the new one twice.",
+   "Aim for <b>Strong</b> or <b>Very strong</b> on the meter.",
+   "Save — you remain signed in on this device."
+  ],
+  "connects": "The security guard records the change in the login audit trail."
+ },
+ "install.html": {
+  "purpose": "A complete, illustrated walkthrough for installing the studio as a real app on iPhone, Android, Windows, macOS and Chromebook — including what you gain by doing it.",
+  "audience": "Everyone.",
+  "why": "Installed users open the portal far more often, and only an installed app can deliver class reminders when the browser tab is closed.",
+  "how": [
+   "Find your device in the list.",
+   "Follow the numbered steps for that platform.",
+   "Confirm the studio icon has appeared on your home screen or dock.",
+   "Allow notifications when asked, so reminders can reach you."
+  ],
+  "connects": "Backed by manifest.json and sw.js, and reinforced by the install banner that appears across the platform."
+ },
+ "offline.html": {
+  "purpose": "The friendly page the service worker serves when the device loses connection, so a family on poor mobile data never sees a raw browser error.",
+  "audience": "Everyone.",
+  "why": "Intermittent connectivity is normal for the studio's audience. Failing gracefully is the difference between 'the network dropped' and 'this app is broken'.",
+  "how": [
+   "Reconnect, then press retry.",
+   "Pages you have already visited still open from the offline cache."
+  ],
+  "connects": "Served automatically by sw.js whenever a navigation request fails."
+ },
+ "developer.html": {
+  "purpose": "Credits the build, documents the technology stack and the design constraints, and links to HMG Technologies for studios wanting bespoke work.",
+  "audience": "Public, and technically-minded readers.",
+  "why": "Transparency about the stack is part of the pitch: no vendor lock-in, no recurring platform fee, and the client owns the source.",
+  "how": [
+   "Read the architecture and constraint summary.",
+   "Follow the ecosystem links to the wider HMG network."
+  ],
+  "connects": "Part of the HMG Concepts ecosystem link graph, which is also how the sites reinforce each other for search."
+ },
+ "site-index.html": {
+  "purpose": "A complete, human-readable index of every page in the studio, grouped by function — the fastest way to find a module when you know what it is called but not where it lives.",
+  "audience": "Everyone; staff use it most.",
+  "why": "With well over a hundred modules enabled, browsing beats hunting through a nav tree.",
+  "how": [
+   "Scan the groups, or press Ctrl/Cmd+F and type what you want.",
+   "Click straight through to the module."
+  ],
+  "connects": "The human counterpart to sitemap.xml, which is the machine version search engines read."
+ },
+ "builder.html": {
+  "purpose": "The internal HMG wizard that generates a complete, branded studio for a client: studio name, logo, theme, font, layout, modules and optional Supabase keys, then produces a ready-to-deploy ZIP with a one-click SQL schema.",
+  "audience": "HMG representatives only — this page is never shipped inside a client build.",
+  "why": "It is the factory. Every client studio in existence is stamped out of this one page, which is why its output has to be complete and correct.",
+  "how": [
+   "Work through the wizard step by step.",
+   "Preview the chosen theme, font and layout live before committing.",
+   "Download the ZIP, then follow DEPLOYMENT-GUIDE.md exactly.",
+   "Run database/complete-schema.sql in a fresh Supabase project and promote the first admin."
+  ],
+  "connects": "Generator-only. It reads the same page files the client will receive, so what you preview is what they get."
+ }
+}

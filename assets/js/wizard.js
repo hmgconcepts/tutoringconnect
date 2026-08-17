@@ -215,19 +215,11 @@ const Wizard = {
   },
 
   /* Quote calculator */
-  quote: { deployment: 15000, training: 10000, data_import: 8000, custom_domain: 5000, support: 5000 },
-  toggleQuote(key, on) {
-    if (on) this.config.quote = this.config.quote || {};
-    if (this.config.quote) this.config.quote[key] = on;
-    this.updateQuote();
-  },
-  updateQuote() {
-    let total = 0;
-    const q = this.config.quote || {};
-    Object.keys(this.quote).forEach(k => { if (q[k]) total += this.quote[k]; });
-    const el = document.getElementById('quote-total');
-    if (el) el.textContent = '₦' + total.toLocaleString();
-  },
+  /* Pricing/quoting was removed in V8 — commercial terms are agreed offline,
+     not surfaced inside the build tool. These no-ops remain so any older
+     saved config or markup that still calls them cannot throw. */
+  toggleQuote() {},
+  updateQuote() {},
 
   /* Save/Load/Share */
   save() {
@@ -347,17 +339,8 @@ const Wizard = {
     if (modal) modal.classList.remove('show');
   },
 
-  /* ✨ Pricing estimator — itemised "Done-for-You" quote (platform stays free) */
-  selectedAddons() {
-    return [...document.querySelectorAll('[data-addon]:checked')].map(c => c.value);
-  },
-  recalcQuote() {
-    const est = Generator.estimate(this.config, this.selectedAddons());
-    const box = document.getElementById('quote-lines');
-    const tot = document.getElementById('quote-total');
-    if (box) box.innerHTML = est.lines.map(l => `<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:.88rem"><span>${l.label}</span><span>${est.currency}${l.amount.toLocaleString()}</span></div>`).join('');
-    if (tot) tot.textContent = est.currency + est.total.toLocaleString();
-  },
+  selectedAddons() { return []; },
+  recalcQuote() {},
 
   /* Generate the ZIP */
   async generate() {
