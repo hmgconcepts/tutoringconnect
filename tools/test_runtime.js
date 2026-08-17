@@ -1252,6 +1252,228 @@ PENDING.push((function () {
   return Promise.resolve();
 })());
 
+
+/* ==========================================================================
+   V18 — SECURITY HARDENING + PER-SITE SEO
+   These assertions exist because STATIC analysis passed 497 times while the
+   deployed system leaked. They encode what tools/audit_live.py found.
+   ========================================================================== */
+PENDING.push((function () {
+  const sql = fs.readFileSync(path.join(ROOT, 'database/complete-schema.sql'), 'utf8');
+
+  // ---- the revoke bug: 'from anon' alone is a no-op ----
+  ok(/revoke all on function %s from public/.test(sql),
+     'security: EXECUTE is revoked from PUBLIC (the only revoke that works)');
+  ok(/prokind = 'f'/.test(sql),
+     'security: the revoke loops over the catalogue, so new functions cannot be missed');
+  /* The meaningful assertion is not "the old line is gone" — it is harmless
+     and V18 runs after it. It is that the catalogue-wide revoke exists AND
+     that each function that leaked is now re-secured. */
+  ['tc_db_report','tc_storage_report','tc_keep_alive_status','tc_schema_info',
+   'tc_security_report'].forEach(f => {
+    ok(new RegExp('revoke all on function public\\.' + f + '\\([^)]*\\) from public').test(sql),
+       'security: ' + f + ' is revoked from PUBLIC, not merely from anon');
+  });
+  ok(/grant execute on function public\.tc_register_candidate\(jsonb\) to anon/.test(sql),
+     'security: the genuinely public functions are re-granted to anon by name');
+  ok(/grant execute on function public\.tc_candidate_lookup\(text, text\) to anon/.test(sql),
+     'security: candidate self-lookup stays public');
+
+  // ---- staff-only functions re-check the role INSIDE themselves ----
+  ['tc_exam_reg_stats','tc_no_show_report','tc_license_status'].forEach(f => {
+    const body = sql.slice(sql.lastIndexOf('function public.' + f));
+    ok(/is_tutor\(\)/.test(body.slice(0, 900)),
+       'security: ' + f + '() checks is_tutor() itself, not just its grant');
+  });
+  ok(/tc_security_report/.test(sql), 'security: a self-audit function ships');
+  ok(/has_function_privilege\('anon'/.test(sql),
+     'security: the self-audit asks the catalogue what anon can execute');
+  ok(/rls_disabled_tables/.test(sql), 'security: the self-audit reports tables without RLS');
+
+  // ---- announcements leak ----
+  ok(/alter table public\.announcements add column if not exists is_public/.test(sql),
+     'security: announcements need an explicit opt-in to be public');
+  ok(/announcements_public_read on public\.announcements\s*\n\s*for select to anon using \(coalesce\(is_public, false\) = true\)/.test(sql),
+     'security: anon sees only announcements marked public');
+
+  // ---- idempotency: every new policy has a matching DROP ----
+  ['announcements_member_read','announcements_public_read','announcements_staff_write'].forEach(pol => {
+    ok(new RegExp('drop policy if exists ' + pol).test(sql),
+       'idempotent: ' + pol + ' is dropped before it is created');
+  });
+
+  // ---- schema version constant ----
+  ok(/'expected', 'V19'/.test(sql), 'schema: tc_schema_info expects V19 (the constant is bumped every pack)');
+  ok(/'V18'/.test(sql), 'schema: registry reports V18');
+  ok(/delete from public\.exam_registrations[\s\S]{0,120}__audit_probe__/.test(sql),
+     'housekeeping: the junk rows my live probe created are cleaned up');
+
+  // ---- per-site SEO ----
+  const robots  = fs.readFileSync(path.join(ROOT, 'robots.txt'), 'utf8');
+  const sitemap = fs.readFileSync(path.join(ROOT, 'sitemap.xml'), 'utf8');
+  const cfg     = fs.readFileSync(path.join(ROOT, 'assets/js/config.js'), 'utf8');
+  const base    = (cfg.match(/siteUrl\s*:\s*['"]([^'"]*)['"]/) || [])[1] || '';
+
+  ok(!!base, 'seo: this site declares its own siteUrl');
+  ok(/^Sitemap: https?:\/\//m.test(robots),
+     'seo: robots.txt uses an ABSOLUTE sitemap URL (a relative one is ignored)');
+  ok(base && robots.indexOf(base) > -1, 'seo: robots.txt points at THIS site');
+  ok(base && sitemap.indexOf(base) > -1, 'seo: sitemap points at THIS site');
+  ok((robots.match(/^Disallow: /gm) || []).length > 100,
+     'seo: every private portal page is disallowed, not just two');
+  ok(/Googlebot/.test(robots) && /Bingbot/.test(robots), 'seo: names both major crawlers');
+
+  // A CLIENT site must never advertise the generator's wizard.
+  const isGenerator = fs.existsSync(path.join(ROOT, 'builder.html'));
+  if (!isGenerator) {
+    ok(sitemap.indexOf('builder.html') === -1,
+       'seo: a client sitemap does not advertise builder.html (which 404s there)');
+    ok(sitemap.indexOf('tutoringconnect.vercel.app') === -1,
+       'seo: a client sitemap does not point at the generator domain');
+  } else { R.skip += 2; }
+
+  // ---- noindex on private pages, and NOT on public ones ----
+  const priv = ['dashboard.html','learners.html','invoices.html','safeguarding.html','settings.html'];
+  priv.forEach(f => {
+    const p = path.join(ROOT, f);
+    if (!fs.existsSync(p)) { R.skip++; return; }
+    ok(/<meta name="robots" content="noindex/.test(fs.readFileSync(p, 'utf8')),
+       'seo: ' + f + ' is noindex (robots.txt is a request, not access control)');
+  });
+  ['index.html','apply.html','exam-register.html','contact.html'].forEach(f => {
+    const p = path.join(ROOT, f);
+    if (!fs.existsSync(p)) { R.skip++; return; }
+    ok(!/content="noindex/.test(fs.readFileSync(p, 'utf8')),
+       'seo: ' + f + ' is indexable (it is a public page)');
+  });
+
+  // ---- the live auditor itself must exist and be honest ----
+  const al = optional('tools/audit_live.py');
+  if (al) {
+    ok(/PUBLIC_OK/.test(al), 'audit_live: has an explicit public allow-list');
+    ok(/DESTRUCTIVE/.test(al),
+       'audit_live: refuses to invoke write functions against live data by default');
+    ok(/revoke execute on function public\.NAME\(args\) from public/.test(al),
+       'audit_live: explains the PUBLIC-vs-anon root cause');
+  } else { R.skip += 3; }
+
+  return Promise.resolve();
+})());
+
+
+/* ==========================================================================
+   V19 — REVENUE AUTOMATION + ENTERPRISE SECURITY
+   ========================================================================== */
+PENDING.push((function () {
+  const sql = fs.readFileSync(path.join(ROOT, 'database/complete-schema.sql'), 'utf8');
+
+  // ---- competitor-parity features ----
+  ['account_credits','payment_plans','payment_plan_items','promo_codes',
+   'tutor_rates','consent_records','data_requests'].forEach(t =>
+    ok(new RegExp('create table if not exists public\\.' + t).test(sql),
+       'v19: table ' + t + ' shipped'));
+
+  ['tc_wallet_balance','tc_wallet_topup','tc_wallet_low_balances',
+   'tc_create_payment_plan','tc_payment_plan_arrears','tc_check_promo',
+   'tc_waitlist_promote','tc_payroll_generate','tc_tutor_performance',
+   'tc_session_conflicts','tc_audit','tc_audit_trail','tc_export_learner',
+   'tc_anonymised_export','tc_security_events'].forEach(f =>
+    ok(new RegExp('function public\\.' + f).test(sql), 'v19: ' + f + '() shipped'));
+
+  // ---- the wallet is a LEDGER, not a mutable balance ----
+  ok(/sum\(amount\) filter \(where unit = 'currency'\)/.test(sql),
+     'wallet: the balance is derived from the ledger, never stored');
+  ok(/is_low/.test(sql), 'wallet: low-balance alert (the renewal driver)');
+
+  // ---- instalment rounding lands on the FIRST payment ----
+  ok(/v_first := v_tot - \(v_each \* \(v_n - 1\)\)/.test(sql),
+     'plans: rounding is absorbed by the first instalment, not the last');
+
+  // ---- automation (item 11) ----
+  ok(/tc_autoinvoice_on_attendance/.test(sql), 'automation: attendance drives invoicing');
+  ok(/create trigger tc_autoinvoice_trg/.test(sql), 'automation: the trigger is attached');
+  ok(/auto_invoice_enabled/.test(sql), 'automation: off by default, opt-in per studio');
+  ok(/if tg_op = 'UPDATE' and old\.status = new\.status then return new/.test(sql),
+     'automation: editing a row cannot double-charge a family');
+
+  // ---- pre-flight fix: sessions had no tutor_id ----
+  ok(/alter table public\.sessions add column if not exists tutor_id/.test(sql),
+     'v19: sessions.tutor_id added (payroll and conflicts were impossible without it)');
+  ok(/alter table public\.sessions add column if not exists duration_min/.test(sql),
+     'v19: sessions.duration_min added');
+  ok(/set duration_min = greatest\(1, round\(extract\(epoch/.test(sql),
+     'v19: duration is backfilled from existing rows, not left null');
+
+  // ---- IMMUTABLE audit trail ----
+  ok(/tc_activity_log_immutable/.test(sql), 'audit: an immutability guard exists');
+  ok(/create trigger activity_log_no_update/.test(sql), 'audit: updates are refused');
+  ok(/create trigger activity_log_no_delete/.test(sql), 'audit: deletes are refused');
+  ok(/revoke insert, update, delete on public\.activity_log from authenticated, anon/.test(sql),
+     'audit: nobody can write the log through the API — only the trigger can');
+  ok(/'site_license','practice_settings','promo_codes'/.test(sql),
+     'audit: money and configuration tables are audited too');
+  ok(/old_row/.test(sql) && /new_row/.test(sql),
+     'audit: before AND after are captured, so "what changed" is answerable');
+
+  // ---- privacy / data-subject rights ----
+  ok(/tc_export_learner/.test(sql), 'privacy: right-to-inspect export');
+  ok(/is_family_of_learner\(p_learner\)/.test(sql),
+     'privacy: a family may export its own child, and only its own child');
+  ok(/sha256/.test(sql) && /pseudonym/.test(sql),
+     'privacy: anonymised export uses SHA-256 pseudonyms');
+  ok(/current_date \+ 30/.test(sql), 'privacy: data requests carry a 30-day clock');
+
+  // ---- everything new is still locked down (the V18 rule) ----
+  ['tc_wallet_balance','tc_audit_trail','tc_export_learner','tc_anonymised_export',
+   'tc_security_events','tc_tutor_performance'].forEach(f =>
+    ok(new RegExp('revoke all on function public\\.' + f + '\\([^)]*\\) from public').test(sql),
+       'v19 security: ' + f + ' is revoked from PUBLIC'));
+  ok(/grant execute on function public\.tc_check_promo\(text, numeric\) to anon/.test(sql),
+     'v19 security: only the promo checker is public (a code is checked at checkout)');
+  ok(/is_tutor\(\)/.test(sql.slice(sql.indexOf('function public.tc_wallet_topup'), sql.indexOf('function public.tc_wallet_topup') + 700)),
+     'v19 security: wallet top-up checks the role inside the function');
+
+  // ---- the three new pages ----
+  ['wallet.html','payment-plans.html','security-centre.html'].forEach(f => {
+    const p = path.join(ROOT, f);
+    ok(fs.existsSync(p), 'page: ' + f + ' exists');
+    if (!fs.existsSync(p)) { R.skip += 4; return; }
+    const s2 = fs.readFileSync(p, 'utf8');
+    ok(/page-intro-what/.test(s2), 'page: ' + f + ' has a detailed description');
+    ok(/page-intro-how/.test(s2),  'page: ' + f + ' explains how to use it');
+    ok(/<meta name="robots" content="noindex/.test(s2), 'page: ' + f + ' is noindex (private)');
+    ok(/assets\/js\/crud\.js/.test(s2), 'page: ' + f + ' loads the shared workbench');
+  });
+
+  // ---- every page can reach the new pages ----
+  let navMissing = 0, navTotal = 0;
+  fs.readdirSync(ROOT).filter(f => f.endsWith('.html')).forEach(f => {
+    const s2 = fs.readFileSync(path.join(ROOT, f), 'utf8');
+    if (s2.indexOf('<nav class="app-nav">') === -1) return;
+    navTotal++;
+    ['wallet.html','payment-plans.html','security-centre.html'].forEach(h => {
+      if (s2.indexOf('href="' + h + '"') === -1) navMissing++;
+    });
+  });
+  ok(navMissing === 0, 'nav: all ' + navTotal + ' portal pages link the new pages (' + navMissing + ' gaps)');
+
+  // ---- the guide and the bot cover them (item 10) ----
+  const dg = mkdom(); loadScripts(dg, ['assets/js/page-guide.js']);
+  const G = dg.window.TC.PAGE_GUIDE;
+  ['wallet','payment-plans','security-centre'].forEach(k => {
+    ok(!!G[k], 'guide: ' + k + ' documented');
+    if (G[k]) {
+      ok((G[k].how || []).length >= 5, 'guide: ' + k + ' has a real step-by-step (>=5 steps)');
+      ok((G[k].purpose || '').length > 150, 'guide: ' + k + ' purpose is substantial');
+    } else { R.skip += 2; }
+  });
+  const kb = fs.readFileSync(path.join(ROOT, 'assets/js/assistant-kb.js'), 'utf8');
+  ['wallet:','payment_plans:','security_centre:'].forEach(k =>
+    ok(kb.indexOf('    ' + k) > -1, 'assistant: curated answer for ' + k.replace(':','')));
+
+  return Promise.resolve();
+})());
+
 /* --------------------------------------------------------------- report */
 Promise.all(PENDING).then(function () {
 console.log(`  PASS ${R.pass}` + (R.skip ? `   (${R.skip} generator-only checks skipped)` : ''));

@@ -56,6 +56,14 @@ for f in sorted(os.listdir(AC)):
 print('   re-baked %d client pages' % n)
 PY
 
+echo "== 3b. regenerate per-site SEO (sitemap + robots + noindex) =="
+# The client studio used to inherit the GENERATOR's sitemap.xml and
+# robots.txt verbatim, so it advertised tutoringconnect.vercel.app and
+# builder.html to search engines. Each site now derives its own from its
+# own config.js.
+python3 "$TC/tools/build_seo.py" "$TC"
+python3 "$TC/tools/build_seo.py" "$AC"
+
 echo "== 4. rebuild the deliverable suite =="
 rm -rf "$SUITE/generator-tutoringconnect" "$SUITE/generated-site-adewaleclassroom" \
        "$SUITE/database" "$SUITE/docs"

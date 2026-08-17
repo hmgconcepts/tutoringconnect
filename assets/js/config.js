@@ -14,7 +14,7 @@ window.PRACTICE = {
   address: 'Lagos, Nigeria — strictly virtual',
   phone: '',
   email: '',
-  siteUrl: '',
+  siteUrl: 'https://tutoringconnect.vercel.app',
   timezone: 'Africa/Lagos',
   currency: '₦',
   logoExt: 'svg',

@@ -85,6 +85,8 @@ console.log('[Tutoring Connect] config —', window.PRACTICE.name);
     'inquiries.html','insights.html','install.html','invoices.html','learner-360.html',
     'learners.html','learning-styles.html','leave.html','lesson-plans.html','library.html',
     'license.html','lms.html','login.html','makeup-credits.html','makeups.html','mastery.html',
+    /* V19 — prepaid wallet, instalment plans and the security/compliance console. */
+    'wallet.html','payment-plans.html','security-centre.html',
     'meetings.html','messages.html','methodologies.html','notifications.html','offline.html',
     'onboarding.html','packages.html','parent-meetings.html','parents.html',
     'payment-history.html','payments.html','payroll.html','platform-health.html',
