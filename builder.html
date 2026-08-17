@@ -32,6 +32,14 @@
   <div><a href="index.html">Home</a> · <a href="hmg-ecosystem.html">Ecosystem</a> · <a href="DEPLOYMENT-GUIDE.md">Deploy</a></div>
 </nav>
 <main class="builder-shell">
+      <section class="help-card page-intro">
+        <div class="page-intro-head"><strong>🚀 Build a tutoring studio</strong><span class="page-intro-badge" style="background:#334155">🎓 Staff only</span></div>
+        <p class="page-intro-what">The internal HMG wizard that generates a complete, branded studio for a client: studio name, logo, theme, font, layout, modules and optional Supabase keys, then produces a ready-to-deploy ZIP with a one-click SQL schema. Requires sign-in as a tutor, admin or owner. Families cannot open it and the database refuses their queries even if they try the URL directly.</p>
+        <p class="page-intro-who"><b>Who it is for.</b> HMG representatives only — this page is never shipped inside a client build.</p>
+        <p class="page-intro-why"><b>Why it matters.</b> It is the factory. Every client studio in existence is stamped out of this one page, which is why its output has to be complete and correct.</p>
+        <details class="page-intro-how"><summary>How to use this page</summary><ol><li>Work through the wizard step by step.</li><li>Preview the chosen theme, font and layout live before committing.</li><li>Download the ZIP, then follow DEPLOYMENT-GUIDE.md exactly.</li><li>Run database/complete-schema.sql in a fresh Supabase project and promote the first admin.</li></ol></details>
+        <p class="page-intro-rel"><b>Related:</b> <a href="about.html">about</a> · <a href="activity-log.html">activity log</a> · <a href="admin-data.html">admin data</a> · <a href="approvals.html">approvals</a> · <a href="change-password.html">change password</a> · <a href="contact.html">contact</a></p>
+      </section>
   <h1>🚀 Build a tutoring studio</h1>
   <p class="muted">HMG Concepts internal workflow. Configure, package and hand a client a parent-facing portal — never this builder.</p>
   <div class="stepper">
@@ -73,15 +81,46 @@
       <div class="form-group"><label>WhatsApp</label><input class="form-input" data-sync="socialWhatsApp" placeholder="https://wa.me/2348100866322"></div>
     </div>
     <h3 style="margin-top:20px">License</h3>
-    <label style="display:block;margin:8px 0"><input type="radio" name="licenseModel" value="lifetime" data-sync="licenseModel" checked> One-time / lifetime (recommended)</label>
-    <label style="display:block;margin:8px 0"><input type="radio" name="licenseModel" value="subscription" data-sync="licenseModel"> Subscription (remind + lock after expiry + grace)</label>
+    <p class="muted" style="margin:0 0 8px">Tutoring Connect ships <b>both</b> commercial models, and
+      the studio owner can switch between them later on the License page without a rebuild.</p>
+    <label style="display:block;margin:8px 0"><input type="radio" name="licenseModel" value="lifetime" data-sync="licenseModel" checked> One-time / lifetime (recommended) — bought once, never expires, never nagged</label>
+    <label style="display:block;margin:8px 0"><input type="radio" name="licenseModel" value="subscription" data-sync="licenseModel"> Subscription — remind, then grace, then enforce</label>
+
+    <div class="grid grid-2" style="margin-top:10px">
+      <div class="form-group"><label>Tier</label>
+        <select class="form-input" data-sync="licenseTier">
+          <option value="starter">Starter — solo tutor</option>
+          <option value="studio" selected>Studio — standard</option>
+          <option value="academy">Academy — multi-tutor</option>
+          <option value="enterprise">Enterprise — bespoke</option>
+        </select></div>
+      <div class="form-group"><label>Licensed to</label>
+        <input class="form-input" data-sync="licenseIssuedTo" placeholder="Defaults to the studio name"></div>
+      <div class="form-group"><label>Learner seats</label>
+        <input class="form-input" type="number" min="0" data-sync="licenseSeatsLearners" placeholder="blank = unlimited"></div>
+      <div class="form-group"><label>Tutor seats</label>
+        <input class="form-input" type="number" min="0" data-sync="licenseSeatsTutors" placeholder="blank = unlimited"></div>
+    </div>
+
     <div id="sub-fields" class="grid grid-2" style="display:none;margin-top:10px;padding:12px;border:1px dashed #134e4a;border-radius:12px">
       <div class="form-group"><label>Plan label</label><input class="form-input" data-sync="licensePlan" placeholder="Termly 2026"></div>
       <div class="form-group"><label>Cycle</label><select class="form-input" data-sync="licenseCycle"><option value="monthly">Monthly</option><option value="termly" selected>Termly</option><option value="annual">Annual</option></select></div>
       <div class="form-group"><label>Expires on</label><input class="form-input" type="date" data-sync="licenseExpires"></div>
       <div class="form-group"><label>Grace days</label><input class="form-input" type="number" value="7" data-sync="licenseGrace"></div>
+      <div class="form-group" style="grid-column:1/-1"><label>What happens after grace runs out</label>
+        <select class="form-input" data-sync="licenseEnforcement">
+          <option value="banner" selected>Warn only — show a banner, never block anything</option>
+          <option value="readonly">Read-only — reads, prints and exports keep working; writes are refused</option>
+          <option value="lock">Lock — writes refused and the interface locks too</option>
+        </select>
+        <div class="form-help"><b>Reads are never blocked in any mode.</b> An expired studio can always
+          be read, printed and exported — the client's own data is never held hostage. Enforcement is
+          applied by a database trigger on 27 tables, not by JavaScript, so it cannot be bypassed with
+          developer tools.</div></div>
       <div class="form-group"><label>Renewal WhatsApp / URL</label><input class="form-input" data-sync="licenseRenewUrl" value="https://wa.me/2348100866322?text=Renew%20Tutoring%20Connect"></div>
       <div class="form-group"><label>HMG registry URL (optional)</label><input class="form-input" data-sync="licenseRegistryUrl" placeholder="https://hmgconcepts.pages.dev/licenses.json"></div>
+      <div class="form-group" style="grid-column:1/-1"><label>Message shown when locked</label>
+        <input class="form-input" data-sync="licenseLockMessage" placeholder="Contact HMG to extend the term."></div>
     </div>
     <div class="nav-buttons"><div></div><button class="btn btn-primary" data-wizard="next">Next: Branding →</button></div>
   </div>
@@ -164,5 +203,6 @@ document.addEventListener('input', e => {
   }
 });
 </script>
+<script src="assets/js/ux-enhance.js" defer></script>
 </body>
 </html>
