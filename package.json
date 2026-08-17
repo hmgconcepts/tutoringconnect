@@ -1,0 +1,19 @@
+{
+  "name": "tutoring-connect-generator",
+  "version": "8.0.0",
+  "private": true,
+  "description": "Tutoring Connect V8 — studio generator by HMG Technologies. The shipped studio is plain static HTML/CSS/JS with NO build step and NO runtime dependencies; this package.json exists only to run the developer test suite.",
+  "scripts": {
+    "test": "node tools/test_runtime.js && node tools/test_generator.js && node tools/test_generator.js modern",
+    "test:runtime": "node tools/test_runtime.js",
+    "test:build": "node tools/test_generator.js",
+    "test:build:modern": "node tools/test_generator.js modern",
+    "test:client": "node tools/test_runtime.js ../adewaleclassroom",
+    "guide": "python3 tools/build_page_guide.py"
+  },
+  "devDependencies": {
+    "jsdom": "^24.0.0",
+    "jszip": "^3.10.1"
+  },
+  "engines": { "node": ">=18" }
+}

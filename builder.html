@@ -5,11 +5,12 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Tutoring Connect Builder — HMG Concepts internal platform builder</title>
 <meta name="description" content="6-step wizard that builds a complete independent tutoring platform. Themes, fonts, 120+ modules. HMG Ecosystem licensed. Logo is a URL — never an upload.">
-<meta name="theme-color" content="#134e4a">
+<meta name="theme-color" content="#4f46e5">
 <link rel="icon" type="image/svg+xml" href="assets/img/logo.svg">
 <link rel="manifest" href="manifest.json">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/css/style.css">
+<link rel="stylesheet" href="assets/css/layouts.css">
 <style>
   body{background:#f8fafc}
   .builder-shell{max-width:1200px;margin:0 auto;padding:40px 24px 60px}
@@ -22,6 +23,8 @@
   .theme-card.selected,.preset-card:hover{border-color:#134e4a}
   .nav-buttons{display:flex;justify-content:space-between;margin-top:28px;gap:12px}
 </style>
+<script src="assets/js/theme-engine.js"></script>
+<script src="assets/js/page-guide.js" defer></script>
 </head>
 <body>
 <nav class="public-nav" style="display:flex;justify-content:space-between;padding:16px 24px">
@@ -123,11 +126,6 @@
         </select>
         <div class="form-help">Traditional is the default free deploy. Modern adds a Next.js scaffold (School Connect pattern) without changing the portal or the database.</div>
       </div>
-    </div>
-    <div id="addon-list" style="display:none"></div>
-    <div class="card" style="margin-top:12px;display:none" id="quote-card"><div id="quote-lines"></div>
-      <div style="display:flex;justify-content:space-between;font-weight:800;margin-top:8px"><span>Estimated total (one-off)</span><span id="quote-total">₦0</span></div>
-      <a class="btn btn-sm btn-outline" style="margin-top:10px" target="_blank" href="https://wa.me/2348100866322?text=Hello%20HMG%2C%20I%20want%20a%20Tutoring%20Connect%20build.">Request on WhatsApp</a>
     </div>
     <ul style="margin:18px 0 0 20px;line-height:1.8">
       <li>Parent-facing <code>index.html</code> (never this builder)</li>
