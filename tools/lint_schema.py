@@ -110,12 +110,18 @@ def lint(path):
                 dupes.append(f"{kind} {name} defined {n}x")
 
     # --- grammar check ---
+    # A missing linter dependency is NOT a schema defect. Report it as a
+    # warning so CI still runs the structural checks, which need no imports.
     parse_err = None
     try:
         import pglast
-        pglast.parse_sql(raw)
-    except Exception as e:
-        parse_err = str(e)[:200]
+    except ImportError:
+        warns.append("pglast not installed - grammar check skipped (pip install pglast)")
+    else:
+        try:
+            pglast.parse_sql(raw)
+        except Exception as e:
+            parse_err = str(e)[:200]
 
     return blockers, warns, dupes, parse_err
 

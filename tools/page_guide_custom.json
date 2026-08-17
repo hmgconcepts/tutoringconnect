@@ -130,5 +130,29 @@
    "Run database/complete-schema.sql in a fresh Supabase project and promote the first admin."
   ],
   "connects": "Generator-only. It reads the same page files the client will receive, so what you preview is what they get."
+ },
+ "family-links.html": {
+  "purpose": "Connect a parent to the child or children they are responsible for. This single mapping is what switches the family portal on: once linked, a parent sees that child's classes, scores, reading, invoices and messages — and nothing about anyone else's child.",
+  "audience": "Owner, admin and tutors who handle enrolment.",
+  "why": "An unlinked child is invisible to their parent, and a parent record with no portal login cannot sign in at all. Those two gaps are the reason almost every family says \"I can't see anything\", and this page finds both for you automatically.",
+  "how": [
+   "Pick the parent, pick the learner, choose the relationship, press Link them.",
+   "Read the <b>Needs attention</b> panel — it lists learners with no parent and parents with no portal login.",
+   "For a parent with no login: have them sign up, approve them on Approvals, then attach their account here.",
+   "Remove a link with the × beside a child; the parent stops seeing them immediately."
+  ],
+  "connects": "Writes parent_learner, which is what the is_parent_of() database rule reads. Pairs with My children, Approvals and Learners."
+ },
+ "my-children.html": {
+  "purpose": "A parent's home page: one card per child showing the next class with date, time and duration, the latest scores by subject, attendance, hours left in the bank, and the reading set before the next lesson.",
+  "audience": "Parents and guardians. Staff see the same layout for the learners they teach.",
+  "why": "This is the page that delivers the studio's promise — independent progress a parent can actually see. A parent who opens this weekly and sees movement renews.",
+  "how": [
+   "Each card is one child. Read the four headline tiles first.",
+   "Use <b>Next classes</b> to confirm the date, time and duration you agreed.",
+   "Open the full scoresheet for the detail behind any score.",
+   "If you see no children at all, the studio has not linked you yet — the page tells you exactly what to ask for."
+  ],
+  "connects": "Reads learners, scoresheet, sessions, attendance and reading, all filtered by Row Level Security. Fed by Family links."
  }
 }

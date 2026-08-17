@@ -53,13 +53,14 @@ console.log('[Tutoring Connect] config —', window.PRACTICE.name);
     'assets/js/media.js','assets/js/brand.js','assets/js/notifications.js','assets/js/pwa-install.js',
     'assets/js/site-help.js','assets/js/assistant-kb.js','assets/js/ics.js','assets/js/chatbot.js','assets/js/ai-assistant.js','assets/js/security-guard.js',
     'assets/js/voting.js','assets/js/enterprise.js','assets/js/analytics.js',
-    'assets/js/theme-engine.js','assets/js/auth-guard.js','assets/js/page-guide.js','assets/js/seo.js','assets/js/keepalive-monitor.js','assets/js/schema-doctor.js','assets/js/quota-guard.js',
+    'assets/js/theme-engine.js','assets/js/auth-guard.js','assets/js/page-guide.js','assets/js/seo.js','assets/js/keepalive-monitor.js','assets/js/schema-doctor.js','assets/js/quota-guard.js','assets/js/ux-enhance.js','assets/js/cbt-exam-kit.js','assets/js/record-actions.js','assets/js/receipts.js',
     'assets/css/layouts.css',
     'docs/SEO-GUIDE.md','docs/PAGE-DIRECTORY.md','docs/KEEP-ALIVE-GUIDE.md','tools/keepalive.gs',
     'database/complete-schema.sql','database/keep-alive.sql','database/drive-sync.sql',
     'database/storage-offload.sql','database/v2-tutoring-ops.sql','database/v3-classroom-exams.sql',
     'database/v4-enterprise-parity.sql','database/v5-ops-parity.sql','database/v6-cbt-modes.sql',
-    'database/v7-family-access-fix.sql','database/v9-keepalive-and-drive.sql','database/v12-quota-guard.sql',
+    'database/v7-family-access-fix.sql','database/v9-keepalive-and-drive.sql','database/v12-quota-guard.sql','database/v15-family-polls-billing.sql',
+    'database/v16-exam-registration.sql','database/v17-licensing-and-family-billing.sql',
     'DEPLOYMENT-GUIDE.md','README.md','FEATURE-CATALOG.md','SUPABASE_FREE_TIER_PROTECTION.md',
     'docs/GOOGLE-DRIVE-SYNC-GUIDE.md','docs/ONBOARDING-GUIDE.md','docs/INSIGHTS-METHODOLOGY.md',
     'manifest.json','sw.js','robots.txt','sitemap.xml','_headers','.nojekyll',
@@ -95,7 +96,7 @@ console.log('[Tutoring Connect] config —', window.PRACTICE.name);
     'site-index.html','sow.html','status-manager.html','storage.html','stream.html',
     'study-log.html','subjects.html','substitutions.html','surveys.html','timezones.html',
     'transcripts.html','trials.html','tutors.html','value-added.html','voting.html',
-    'waitlist.html','whiteboard.html'
+    'waitlist.html','whiteboard.html','family-links.html','my-children.html'
   ],
   ALWAYS_PAGES: [
     'engagements.html','learners.html','insights.html','learner-360.html','calendar.html',
@@ -167,6 +168,12 @@ console.log('[Tutoring Connect] config —', window.PRACTICE.name);
     if (clientIndex) zip.file('index.html', clientIndex);
     zip.file('assets/js/config.js', this.configJS(cfg));
     zip.file('PRACTICE.json', JSON.stringify(cfg, null, 2));
+
+    /* V17 — emit a licence seed so the DATABASE agrees with the wizard.
+       Enforcement lives in public.site_license and is applied by a trigger;
+       writing the choice only into config.js would leave the database on
+       its defaults and the owner's choice would silently do nothing. */
+    zip.file('database/00-licence-seed.sql', this.licenceSeedSQL(cfg));
     const origin = String(cfg.siteUrl || '').replace(/\/$/, '') || 'https://your-studio.example';
     const today = new Date().toISOString().slice(0, 10);
 
@@ -511,10 +518,25 @@ document.querySelectorAll('.preview-nav a').forEach(a=>a.onclick=e=>{e.preventDe
     };
     cfg.license = {
       model: cfg.licenseModel || 'lifetime',
+      /* V17 — the builder now also collects tier, seats, enforcement mode
+         and the lock message. These are written into config.js AND into the
+         seed row for public.site_license, which is what the database
+         trigger actually consults. Enforcement is only ever meaningful for
+         a subscription; a one-time licence is forced to 'banner' so a
+         mis-click in the wizard can never lock a studio that was bought
+         outright. */
+      tier: cfg.licenseTier || 'studio',
       plan: cfg.licensePlan || (cfg.licenseModel === 'subscription' ? (cfg.licenseCycle || 'termly') : 'One-time ownership'),
       status: 'active',
-      expires_on: cfg.licenseExpires || null,
+      enforcement: cfg.licenseModel === 'subscription' ? (cfg.licenseEnforcement || 'banner') : 'banner',
+      expires_on: cfg.licenseModel === 'subscription' ? (cfg.licenseExpires || null) : null,
       grace_days: Number(cfg.licenseGrace || 7),
+      seats_learners: cfg.licenseSeatsLearners === '' || cfg.licenseSeatsLearners == null
+        ? null : Number(cfg.licenseSeatsLearners),
+      seats_tutors: cfg.licenseSeatsTutors === '' || cfg.licenseSeatsTutors == null
+        ? null : Number(cfg.licenseSeatsTutors),
+      issued_to: cfg.licenseIssuedTo || cfg.schoolName || cfg.name || '',
+      lock_message: cfg.licenseLockMessage || '',
       renew_url: cfg.licenseRenewUrl || 'https://wa.me/2348100866322?text=Renew%20Tutoring%20Connect',
       registryUrl: cfg.licenseRegistryUrl || ''
     };
@@ -522,6 +544,49 @@ document.querySelectorAll('.preview-nav a').forEach(a=>a.onclick=e=>{e.preventDe
     cfg.demo = cfg.demoMode === 'yes';
     return cfg;
   },
+  /* Builds the one-row seed for public.site_license from the wizard.
+     Idempotent and safe to re-run: it UPDATES the existing row rather than
+     failing on the primary key, so re-seeding never wipes a renewal. */
+  licenceSeedSQL(cfg) {
+    const L = cfg.license || {};
+    const q = v => (v === null || v === undefined || v === '')
+      ? 'null' : "'" + String(v).replace(/'/g, "''") + "'";
+    const n = v => (v === null || v === undefined || v === '') ? 'null' : Number(v);
+    return [
+      '-- =====================================================================',
+      '-- LICENCE SEED for ' + (cfg.schoolName || cfg.name || 'this studio'),
+      '-- Generated by Tutoring Connect. Run AFTER complete-schema.sql.',
+      '--',
+      '-- This writes the licensing choice you made in the builder into the',
+      '-- database, which is where it is actually enforced. Without this the',
+      '-- studio falls back to a one-time/lifetime licence in warn-only mode.',
+      '--',
+      '-- Model       : ' + (L.model || 'lifetime'),
+      '-- Tier        : ' + (L.tier || 'studio'),
+      '-- Enforcement : ' + (L.enforcement || 'banner'),
+      '-- Reads are NEVER blocked, in any mode.',
+      '-- =====================================================================',
+      '',
+      'insert into public.site_license (id, model, tier, plan, status, enforcement,',
+      '                                 expires_on, grace_days, seats_learners,',
+      '                                 seats_tutors, issued_to, renew_url, lock_message)',
+      'values (1, ' + q(L.model || 'lifetime') + ', ' + q(L.tier || 'studio') + ', ' + q(L.plan) + ", 'active', " + q(L.enforcement || 'banner') + ',',
+      '        ' + (L.expires_on ? q(L.expires_on) + '::date' : 'null') + ', ' + n(L.grace_days || 7) + ', ' + n(L.seats_learners) + ',',
+      '        ' + n(L.seats_tutors) + ', ' + q(L.issued_to) + ', ' + q(L.renew_url) + ', ' + q(L.lock_message) + ')',
+      'on conflict (id) do update set',
+      '  model = excluded.model, tier = excluded.tier, plan = excluded.plan,',
+      '  status = excluded.status, enforcement = excluded.enforcement,',
+      '  expires_on = excluded.expires_on, grace_days = excluded.grace_days,',
+      '  seats_learners = excluded.seats_learners, seats_tutors = excluded.seats_tutors,',
+      '  issued_to = excluded.issued_to, renew_url = excluded.renew_url,',
+      '  lock_message = excluded.lock_message, last_checked_at = now();',
+      '',
+      "select 'Licence seeded \\u2705' as status, model, tier, enforcement, expires_on",
+      '  from public.site_license where id = 1;',
+      ''
+    ].join('\n');
+  },
+
   async build(raw) {
     const cfg = this.normalizeCfg(raw);
     const blob = await this.go(cfg);

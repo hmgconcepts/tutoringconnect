@@ -61,7 +61,7 @@ PUBLIC = {'index', 'login', 'about', 'contact', 'apply', 'register', 'signup',
           'hmg-products', 'developer', 'flyer', 'exam-register', 'public-book',
           'site-index'}
 CODE_GATED = {'cbt-exam', 'cbt-multi', 'cbt-review'}
-FAMILY = {'dashboard', 'scoresheet', 'insights', 'learner-360', 'calendar', 'bookings',
+FAMILY = {'my-children', 'dashboard', 'scoresheet', 'insights', 'learner-360', 'calendar', 'bookings',
           'reading', 'practice', 'study-log', 'notifications', 'inbox', 'announcements',
           'profile', 'stream', 'classwork', 'invoices', 'payment-history',
           'progress-reports', 'certificates', 'transcripts', 'portfolio', 'forum',
@@ -301,7 +301,10 @@ def build():
             detail.append("It is form-driven — you fill a form and save; the record appears in the list immediately.")
         detail.append(ACCESS_TEXT[access])
 
-        siblings = [s for s in by_group[grp] if s != pg][:6]
+        # builder/wizard pages exist only in the generator; a CLIENT build must
+        # never link to them or the ZIP ships a broken link.
+        GENERATOR_ONLY = {'builder'}
+        siblings = [s for s in by_group[grp] if s != pg and s not in GENERATOR_ONLY][:6]
 
         arch = archetype(pg, grp, access)
         guide[pg] = dict(
