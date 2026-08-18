@@ -531,7 +531,8 @@ PENDING.push((function v11Tests() {
     if (!txt || txt.length < 150) thin.push(p);
   });
   ok(thin.length === 0, `prompts: all ${REQUIRED.length} packs produce a real prompt (${thin})`);
-  ok(C.promptPack('mcq_only','t',5,'',{}).indexOf('MCQ-ONLY') !== -1, 'prompts: MCQ-only strict pack (SC parity)');
+  ok(/MCQ ONLY|MCQ-ONLY|STRICT FORMAT/.test(C.promptPack('mcq_only','t',5,'',{})),
+     'prompts: MCQ-only strict pack (SC parity)');
   ok(C.promptPack('exam_board','t',5,'',{board:'WAEC'}).indexOf('WAEC') !== -1, 'prompts: exam-board pack embeds the board (SC parity)');
   ok(C.promptPack('reading_video','t',5,'',{source:'https://youtu.be/abc'}).indexOf('https://youtu.be/abc') !== -1,
      'prompts: reading-video pack embeds the actual video link');
@@ -1307,7 +1308,7 @@ PENDING.push((function () {
   });
 
   // ---- schema version constant ----
-  ok(/'expected', 'V20'/.test(sql), 'schema: tc_schema_info expects V20 (the constant is bumped every pack)');
+  ok(/'expected', 'V22'/.test(sql), 'schema: tc_schema_info expects V22 (the constant is bumped every pack)');
   ok(/'V18'/.test(sql), 'schema: registry reports V18');
   ok(/delete from public\.exam_registrations[\s\S]{0,120}__audit_probe__/.test(sql),
      'housekeeping: the junk rows my live probe created are cleaned up');
@@ -1661,7 +1662,7 @@ PENDING.push((function () {
   loadScripts(pdom, ['assets/js/cbt.js']);
   const prompt = pdom.window.CBT.promptPack('SS2', 'Photosynthesis', 20, 'SS2',
     { subject: 'Biology', examType: 'WAEC' });
-  ok(prompt.length > 5000, 'v21 prompt: substantially expanded (>5k chars)');
+  ok(prompt.length > 4000, 'v22 prompt: substantially expanded (>4k chars, rules now scoped to the pack)');
   ok(/QUESTION TYPE DISTRIBUTION/.test(prompt), 'v21 prompt: has an explicit type distribution');
   const dm = prompt.match(/^(mcq=.*)$/m);
   ok(!!dm, 'v21 prompt: the distribution line is present');
@@ -1669,13 +1670,20 @@ PENDING.push((function () {
     const total = dm[1].split(', ').reduce((a, x) => a + Number(x.split('=')[1] || 0), 0);
     ok(total === 20, 'v21 prompt: the distribution sums EXACTLY to the requested count');
   } else { R.skip++; }
-  ok(/PER-TYPE COLUMN RULES/.test(prompt), 'v21 prompt: per-type column rules');
+  ok(/COLUMN RULES FOR THE TYPES THIS PACK USES/.test(prompt), 'v22 prompt: per-type column rules');
   ok(/Question,A,B,C,D,CorrectAnswer,Explanation,Type,Tolerance,Unit,Accept,MRQ_AON,Pairs,Items,Difficulty,Tags,Section/.test(prompt),
      'v21 prompt: the full 17-column HMG header');
   ok(/DOWNLOADABLE \.CSV FILE/.test(prompt), 'v21 prompt: demands a downloadable file');
+  /* V22: column rules are now emitted only for the types a pack actually
+     uses — an MCQ-only pack should not carry eight pages of irrelevant
+     rules. So assert against the ENTERPRISE pack, which uses all 17. */
+  const ent = pdom.window.CBT.promptPack('enterprise', 'Photosynthesis', 34, 'SS2',
+    { subject: 'Biology', examType: 'WAEC' });
   ['multi_numeric','matching','ordering','cloze','categorization','matrix','hot_text',
    'assertion_reason','case_study','image_mcq','essay','code'].forEach(t =>
-    ok(prompt.indexOf('\n' + t + ' -') > -1, 'v21 prompt: rules for ' + t));
+    ok(ent.indexOf('\n' + t + ' \u2014') > -1, 'v22 prompt: enterprise pack has rules for ' + t));
+  ok(pdom.window.CBT.promptPack('mcq_only', 'T', 10, '', {}).indexOf('\nmatching \u2014') === -1,
+     'v22 prompt: an MCQ-only pack does NOT carry irrelevant type rules');
 
   // ---------- ITEM 2: the HMG / School Connect CSV ----------
   ok(/if \(q && line\[i \+ 1\] === '"'\)/.test(cbtjs),
@@ -1732,6 +1740,172 @@ PENDING.push((function () {
    'tcq-passage','tcq-ar','tcq-figure','tcq-code'].forEach(c =>
     ok(new RegExp('\\.' + c + '\\b').test(css), 'v21 css: .' + c));
   ok(/min-height:44px/.test(css), 'v21 css: touch targets are at least 44px (phone-first)');
+
+  return Promise.resolve();
+})());
+
+
+/* ==========================================================================
+   V22 — RESULTS/AUDIT, PER-PACK PROMPTS, LEGIBILITY GUARD, SOW, PICKERS
+   ========================================================================== */
+PENDING.push((function () {
+  const sql   = fs.readFileSync(path.join(ROOT, 'database/complete-schema.sql'), 'utf8');
+  const crud  = fs.readFileSync(path.join(ROOT, 'assets/js/crud.js'), 'utf8');
+  const types = fs.readFileSync(path.join(ROOT, 'assets/js/cbt-types.js'), 'utf8');
+  const ux    = fs.readFileSync(path.join(ROOT, 'assets/js/ux-enhance.js'), 'utf8');
+  const css   = fs.readFileSync(path.join(ROOT, 'assets/css/style.css'), 'utf8');
+
+  // ---------- ITEM 1: results, audit, notification ----------
+  ['tc_cbt_exam_index','tc_cbt_exam_results','tc_cbt_result_audit',
+   'tc_cbt_item_analysis','tc_cbt_review_result'].forEach(f =>
+    ok(new RegExp('function public\\.' + f).test(sql), 'item1: ' + f + '() shipped'));
+  ok(/create trigger tc_notify_cbt_trg/.test(sql), 'item1: a submission raises a notification');
+  ok(/notifications add column if not exists kind/.test(sql),
+     'item1: notifications gained the columns the trigger writes (checked, not assumed)');
+  ok(/is_anonymous/.test(sql), 'item1: anonymous candidates are recorded as such, not hidden');
+  ['started_at','finished_at','duration_sec','attempt_no','user_agent','manual_score','tutor_comment']
+    .forEach(c => ok(new RegExp('cbt_results add column if not exists ' + c).test(sql),
+                     'item1: cbt_results.' + c));
+  ok(/CHECK THE KEY/.test(sql), 'item1: item analysis flags a probable wrong answer key');
+  const crp = path.join(ROOT, 'cbt-results.html');
+  ok(fs.existsSync(crp), 'item1: cbt-results.html exists');
+  if (fs.existsSync(crp)) {
+    const cr = fs.readFileSync(crp, 'utf8');
+    ['cr-exams','cr-panel','cr-stats','cr-rows','cr-items','cr-csv','cr-notifs'].forEach(i =>
+      ok(cr.indexOf('id="' + i + '"') > -1, 'item1: control #' + i));
+    ok(/data-res=/.test(cr), 'item1: a Results button sits beside every paper');
+    ok(/data-audit=/.test(cr), 'item1: an Audit button sits beside every sitting');
+    ok(/setInterval\(notifs, 30000\)/.test(cr), 'item1: live submission polling');
+  } else { R.skip += 10; }
+  // reachable from every page
+  let navMiss = 0;
+  fs.readdirSync(ROOT).filter(f => f.endsWith('.html')).forEach(f => {
+    const s2 = fs.readFileSync(path.join(ROOT, f), 'utf8');
+    if (s2.indexOf('<nav class="app-nav">') === -1) return;
+    if (s2.indexOf('href="cbt-results.html"') === -1) navMiss++;
+  });
+  ok(navMiss === 0, 'item1: every portal page links CBT results (' + navMiss + ' gaps)');
+
+  // ---------- ITEM 2: every pack is a DIFFERENT prompt ----------
+  const pd = mkdom(); pd.window.PRACTICE = { name: 'X' };
+  loadScripts(pd, ['assets/js/cbt.js']);
+  const C2 = pd.window.CBT;
+  const PACKS = Object.keys(C2.PACKS || {});
+  ok(PACKS.length >= 18, 'item2: ' + PACKS.length + ' packs defined with their own content');
+  const built = {};
+  PACKS.forEach(k => {
+    built[k] = C2.promptPack(k, 'Quadratics', 20, 'SS2',
+      { subject: 'Mathematics', board: 'WAEC', source: 'https://youtu.be/x', subjects: 'Maths, English' });
+  });
+  // each pack must declare its own role, mission and quality bar
+  PACKS.forEach(k => {
+    ok(/MISSION FOR THIS PARTICULAR PAPER/.test(built[k]), 'item2: ' + k + ' states its own mission');
+    ok(/QUALITY BAR FOR THIS PACK/.test(built[k]), 'item2: ' + k + ' has its own quality bar');
+    ok(built[k].indexOf('PACK: ') === 0, 'item2: ' + k + ' is labelled');
+  });
+  // and they must genuinely differ from one another
+  function jaccard(a, b) {
+    const A = new Set(a.split('\n')), B = new Set(b.split('\n'));
+    let i = 0; A.forEach(x => { if (B.has(x)) i++; });
+    return i / Math.max(A.size, B.size);
+  }
+  let worst = 0, pair = '';
+  for (let i = 0; i < PACKS.length; i++) {
+    for (let j = i + 1; j < PACKS.length; j++) {
+      const s2 = jaccard(built[PACKS[i]], built[PACKS[j]]);
+      if (s2 > worst) { worst = s2; pair = PACKS[i] + '/' + PACKS[j]; }
+    }
+  }
+  ok(worst < 0.90, 'item2: no two packs are near-identical (worst ' +
+     Math.round(worst * 100) + '% on ' + pair + ')');
+  // distributions differ and always sum exactly
+  const dists = {};
+  PACKS.forEach(k => {
+    const m = built[k].match(/^([a-z_]+=\d+.*)$/m);
+    if (m) {
+      dists[k] = m[1];
+      const total = m[1].split(', ').reduce((a, x) => a + Number(x.split('=')[1] || 0), 0);
+      ok(total === 20, 'item2: ' + k + ' distribution sums exactly to 20');
+    }
+  });
+  ok(new Set(Object.values(dists)).size >= 12,
+     'item2: packs use genuinely different type mixes (' + new Set(Object.values(dists)).size + ' distinct)');
+  // enterprise keeps all 17 even at small counts
+  [17, 20, 34].forEach(n => {
+    const e = C2.promptPack('enterprise', 'T', n, '', { subject: 'S' });
+    const m = e.match(/^([a-z_]+=\d+.*)$/m);
+    ok(m && m[1].split(', ').length === 17,
+       'item2: enterprise keeps all 17 types at n=' + n);
+  });
+
+  // ---------- ITEM 3: the legibility guard ----------
+  const lg = path.join(ROOT, 'assets/js/legibility.js');
+  ok(fs.existsSync(lg), 'item3: legibility.js ships');
+  if (fs.existsSync(lg)) {
+    const L = fs.readFileSync(lg, 'utf8');
+    ok(/MutationObserver/.test(L), 'item3: it watches for popups appearing');
+    ok(/0\.2126/.test(L), 'item3: it uses real WCAG relative luminance');
+    ok(/ratio >= 4\.5/.test(L), 'item3: it only intervenes below AA (4.5:1)');
+    ok(/'important'/.test(L), 'item3: it beats the inline style that caused the bug');
+    // prove the maths in a real DOM
+    const ld = mkdom();
+    ld.window.document.body.innerHTML =
+      '<div class="modal" style="background:white;color:#f8fafc"><p>x</p></div>';
+    loadScripts(ld, ['assets/js/legibility.js']);
+    ld.window.document.dispatchEvent(new ld.window.Event('DOMContentLoaded'));
+    const G = ld.window.TCLegibility;
+    ok(!!G, 'item3: the guard exposes itself for testing');
+    if (G) {
+      ok(G.contrast([248, 250, 252], [255, 255, 255]) < 1.2,
+         'item3: it recognises white-on-white as failing');
+      ok(G.contrast([15, 23, 42], [255, 255, 255]) > 15,
+         'item3: the ink it substitutes is far above AA');
+    } else { R.skip += 2; }
+  } else { R.skip += 6; }
+
+  // ---------- ITEM 4: no type dropped, and guidance on screen ----------
+  const td2 = mkdom(); loadScripts(td2, ['assets/js/cbt-types.js', 'assets/js/cbt.js']);
+  const T2 = td2.window.CBTTypes, C3 = td2.window.CBT;
+  const declared = C3.allTypes();
+  ok(declared.length >= 32, 'item4: ' + declared.length + ' question types still declared');
+  const unrenderable = declared.filter(t => !T2.supports(t));
+  ok(unrenderable.length === 0,
+     'item4: EVERY declared type renders (' + unrenderable.join(',') + ')');
+  ok(Object.keys(T2.HOWTO).length >= 17, 'item4: a how-to note for every family');
+  ok(T2.legendHTML().length > 1500, 'item4: a full on-screen legend');
+  ok(T2.render({ type: 'matching', pairs: [{ left: 'a', right: 'b' }] }, 'q').indexOf('tcq-howto') > -1,
+     'item4: an unfamiliar type carries its guidance inline');
+  ok(T2.render({ type: 'mcq', options: ['a', 'b'] }, 'q').indexOf('tcq-howto') === -1,
+     'item4: a familiar type is not cluttered with it');
+  const ex2 = fs.readFileSync(path.join(ROOT, 'cbt-exam.html'), 'utf8');
+  ok(/id="howto"/.test(ex2), 'item4: the legend is reachable during the exam');
+  ok(/\.tcq-howto\b/.test(css) && /\.tcq-legend\b/.test(css), 'item4: guidance is styled');
+
+  // ---------- ITEM 5: auto-dropdowns ----------
+  ok(/TCPickers/.test(ux), 'item5: the auto-picker ships');
+  ok(/learners.*full_name/.test(ux) && /subjects.*name/.test(ux),
+     'item5: it knows the entity tables');
+  ok(/or type a new one/i.test(ux), 'item5: a genuinely new value is still allowed');
+  ok((crud.match(/type: 'lookup'/g) || []).length >= 15, 'item5: crud lookups retained');
+
+  // ---------- ITEM 6: scheme of work ----------
+  ['sow_terms','sow_topics','sow_evaluations'].forEach(t =>
+    ok(new RegExp(t + ": \\{ table: '" + t + "'").test(crud), 'item6: ' + t + ' has a CRUD schema'));
+  const sow = fs.readFileSync(path.join(ROOT, 'sow.html'), 'utf8');
+  ['sow-crud-terms','sow-crud-topics','sow-crud-evals'].forEach(i =>
+    ok(sow.indexOf('id="' + i + '"') > -1, 'item6: sow.html mounts #' + i));
+  ok(/CRUD\.renderList\('sow_terms'/.test(sow), 'item6: terms are editable and deletable');
+
+  // ---------- ITEM 7: the School Connect CSV still imports ----------
+  const csv2 = [
+    'Question,A,B,C,D,CorrectAnswer,Explanation,Type,Tolerance,Unit,Accept,MRQ_AON,Pairs,Items',
+    '"Q1","3","4","5","6","B","","mcq","","","","","",""',
+    '"Match","","","","","","","matching","","","","","[{""left"":""Na"",""right"":""Sodium""}]",""'
+  ].join('\n');
+  const parsed2 = C3.parseCSV(csv2);
+  ok(parsed2.length === 2, 'item7: a School Connect CSV still parses');
+  ok(parsed2[0].unit === '', 'item7: empty quoted fields stay empty');
+  ok(Array.isArray(parsed2[1].pairs), 'item7: Pairs JSON still parses to an array');
 
   return Promise.resolve();
 })());

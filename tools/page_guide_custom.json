@@ -199,5 +199,21 @@
    "Record photo, trip and marketing permissions in <b>Consent</b>, storing the signed form as a Drive link — this studio never accepts uploads."
   ],
   "connects": "Reads the same audit trail shown in activity-log.html. Works with safeguarding.html, compliance.html and policies.html. Licence state is managed in license.html."
+ },
+ "cbt-results.html": {
+  "purpose": "Every quiz and exam the studio has set, each with a Results button. Open one and you see who sat it — registered learners and anonymous candidates who used only a code — what they scored, how long they took, and any integrity flags. Open a single sitting and you see exactly what that candidate did: every question, the answer given, the answer expected, the mark awarded, and a timeline of anything the anti-cheat layer noticed.",
+  "audience": "Owner, admin and tutors. Families never reach this page; the database refuses it by role rather than merely hiding the link.",
+  "why": "A score on its own tells you almost nothing. Item analysis tells you whether the class failed a question or the question failed the class — a facility below 25% usually means a wrong answer key, not thirty confused learners. Catching that before you publish a grade is the difference between a defensible mark and an argument with a parent.",
+  "how": [
+   "The table lists every paper with sittings, how many are unreviewed, and the class average.",
+   "Press <b>📊 Results</b> beside a paper to open its results.",
+   "Scan the summary strip: sat, average, highest, lowest, flagged, unreviewed, median time.",
+   "Press <b>🔍 Audit</b> on any row to see that candidate's full paper, question by question, with their answer beside the expected one.",
+   "Use <b>🧪 Item analysis</b> to find questions the whole class failed. Anything marked <b>CHECK THE KEY</b> should be verified before you release marks.",
+   "Override a mark with <b>✏️ Review</b> — essays and code are marked by keyword and always need a human eye. The original machine score is kept beside yours.",
+   "Live submissions appear automatically every 30 seconds; each links straight to the result.",
+   "Export any result set to CSV for a mark book or a parent meeting."
+  ],
+  "connects": "Papers are built in cbt-multi.html and sat in cbt-exam.html. Learners see their own review in cbt-review.html. Graded results push to scoresheet.html. Submission alerts also appear in notifications.html."
  }
 }
