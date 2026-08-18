@@ -418,7 +418,11 @@ PENDING.push((function driveTests() {
 PENDING.push((function v10Tests() {
   // 10a. Item 1 — no third-party-sounding theme name; HMG house theme present
   const cat = fs.readFileSync(path.join(ROOT, 'assets/js/catalog.js'), 'utf8');
-  ok(!/Lumen/i.test(cat), 'brand: no "Lumen" naming remains in the catalogue');
+  /* The retired theme name must be gone, and the house name present.
+     (A blanket rename once turned this assertion into "no HMG anywhere",
+     which is the opposite of what we want — hence the explicit pair.) */
+  ok(!/Lumen/i.test(cat), 'brand: the retired "Lumen" naming is gone from the catalogue');
+  ok(/HMG Tutoring Studio/.test(cat), 'brand: the HMG house theme is present');
   const dom0 = mkdom(); dom0.window.eval(cat);
   const themes = dom0.window.TC.THEMES;
   const hmg = themes.find(t => t.id === 'hmg');
@@ -1303,7 +1307,7 @@ PENDING.push((function () {
   });
 
   // ---- schema version constant ----
-  ok(/'expected', 'V19'/.test(sql), 'schema: tc_schema_info expects V19 (the constant is bumped every pack)');
+  ok(/'expected', 'V20'/.test(sql), 'schema: tc_schema_info expects V20 (the constant is bumped every pack)');
   ok(/'V18'/.test(sql), 'schema: registry reports V18');
   ok(/delete from public\.exam_registrations[\s\S]{0,120}__audit_probe__/.test(sql),
      'housekeeping: the junk rows my live probe created are cleaned up');
@@ -1470,6 +1474,134 @@ PENDING.push((function () {
   const kb = fs.readFileSync(path.join(ROOT, 'assets/js/assistant-kb.js'), 'utf8');
   ['wallet:','payment_plans:','security_centre:'].forEach(k =>
     ok(kb.indexOf('    ' + k) > -1, 'assistant: curated answer for ' + k.replace(':','')));
+
+  return Promise.resolve();
+})());
+
+
+/* ==========================================================================
+   V20 — THE 18 REPORTED BUGS
+   One assertion (at least) per reported item, so a regression is caught.
+   ========================================================================== */
+PENDING.push((function () {
+  const sql   = fs.readFileSync(path.join(ROOT, 'database/complete-schema.sql'), 'utf8');
+  const crud  = fs.readFileSync(path.join(ROOT, 'assets/js/crud.js'), 'utf8');
+  const app   = fs.readFileSync(path.join(ROOT, 'assets/js/app.js'), 'utf8');
+  const kit   = fs.readFileSync(path.join(ROOT, 'assets/js/cbt-exam-kit.js'), 'utf8');
+  const cbtjs = fs.readFileSync(path.join(ROOT, 'assets/js/cbt.js'), 'utf8');
+  const css   = fs.readFileSync(path.join(ROOT, 'assets/css/style.css'), 'utf8');
+
+  // --- 1. full CBT editing, School Connect parity ---
+  const mm = fs.readFileSync(path.join(ROOT, 'cbt-multi.html'), 'utf8');
+  ['open','sit','link','preview','questions','append','results','export','diagnose','archive']
+    .forEach(a => ok(new RegExp("id: '" + a + "'").test(mm), 'bug1: CBT action "' + a + '" exists'));
+  ok(/Save all changes/.test(mm), 'bug1: questions can be edited and saved in bulk');
+  ok(/data-del/.test(mm) && /data-up/.test(mm), 'bug1: questions can be deleted and reordered');
+
+  // --- 2 + 3. nav gaps and search ---
+  ok(/_syncNavSections/.test(app), 'bug2: empty section headings are collapsed');
+  ok(/nav-section-title/.test(app), 'bug2: the collapse targets section titles');
+  ok(/q\.split\(' '\)\.every/.test(app), 'bug3: multi-word nav search works');
+  ok(/replace\(\/\[•·/.test(app), 'bug3: bullet glyphs are stripped before matching');
+  ok(/a\.getAttribute\('href'\)/.test(app), 'bug3: search also matches the page filename');
+
+  // --- 4. one question per page ---
+  const ex = fs.readFileSync(path.join(ROOT, 'cbt-exam.html'), 'utf8');
+  ok(/id="prevq"/.test(ex) && /id="nextq"/.test(ex), 'bug4: Prev / Next buttons exist');
+  ok(/showOnly/.test(ex), 'bug4: exactly one question card is displayed');
+  ok(/qprogress/.test(ex), 'bug4: "Question N of M" progress is shown');
+  ok(/ArrowRight/.test(ex), 'bug4: keyboard navigation');
+  ok(/onJump: \(i\) => \{ state\.current = i; paint\(\); \}/.test(ex),
+     'bug4: the number palette switches question rather than scrolling');
+
+  // --- 5. calculator / maths keyboard must not count as cheating ---
+  ok(/TOOL_SEL/.test(kit), 'bug5: studio tools are identified');
+  ok(/inTool\(e\.target\)/.test(kit), 'bug5: tool events are exempt from the copy/paste guard');
+  ok(/d\.hasFocus\(\)/.test(kit), 'bug5: window blur is verified before it is recorded');
+  ok(/_toolOpen/.test(kit), 'bug5: a blur caused by opening a tool is ignored');
+
+  // --- 6. School Connect CSV compatibility ---
+  ["'opt_a'", "'choice_a'", "'answer_key'", "'correctOption'", "'multiple_select'", "'checkboxes'"]
+    .forEach(a => ok(cbtjs.indexOf(a) > -1, 'bug6: CSV alias ' + a + ' accepted'));
+  ok(/\^\[A-F\]\$/.test(cbtjs), 'bug6: a letter answer (A/B/C/D) resolves to the option text');
+
+  // --- 7. prompts must ask for a downloadable CSV FILE ---
+  ok(/DOWNLOADABLE \.CSV FILE/.test(cbtjs), 'bug7: prompt demands a downloadable file');
+  ok(!/copy the block into a/i.test(cbtjs), 'bug7: the copy-and-paste instruction is gone');
+
+  // --- 8 + 17. the assistant icon ---
+  ok(/window\.Chatbot \|\| document\.getElementById\('tc-bot-fab'\)/.test(app),
+     'bug8: the duplicate dead FAB is not created when the real assistant exists');
+  ok(/querySelectorAll\('\.tc-chat-fab, #chatbot-window'\)\.forEach\(el => el\.remove\(\)\)/.test(app),
+     'bug8: any legacy duplicate is removed');
+  ok(/data-chatbot="open"/.test(app) && /Chatbot\.setOpen\(true\)/.test(app),
+     'bug17: legacy markup is delegated to the real assistant');
+
+  // --- 9. brand name ---
+  ['README.md'].forEach(f => {
+    const p2 = path.join(ROOT, f);
+    if (!fs.existsSync(p2)) { R.skip++; return; }
+    ok(!/Lumen/i.test(fs.readFileSync(p2, 'utf8')), 'bug9: no "Lumen" naming in ' + f);
+  });
+
+  // --- 10. the cbt_exams columns that made saving fail ---
+  ['calculator','math_keyboard','subject_breakdown','identity_mode','instructions',
+   'exam_type','csv_data','csv_source','is_archived','shuffle_questions','pass_mark']
+    .forEach(c => ok(new RegExp('cbt_exams add column if not exists ' + c).test(sql),
+                     'bug10: cbt_exams.' + c + ' exists'));
+  ok(/tc_cbt_schema_check/.test(sql), 'bug10: a guard reports any future missing CBT column');
+
+  // --- 11. popup legibility ---
+  ok(/\.modal,[\s\S]{0,400}color: #0f172a !important/.test(css),
+     'bug11: popups pin an explicit high-contrast text colour');
+  ok(/body\.dark-mode \.modal/.test(css), 'bug11: dark mode keeps popups legible');
+  ok(/\.toast \{ color: #ffffff !important/.test(css), 'bug11: toasts are legible too');
+
+  // --- 12. poll creation ---
+  const vt = fs.readFileSync(path.join(ROOT, 'voting.html'), 'utf8');
+  ok(/id="vc-create"/.test(vt), 'bug12: a Create poll button exists');
+  ok(/tc_create_poll/.test(vt), 'bug12: creation goes through the RPC');
+  ok(/function public\.tc_create_poll/.test(sql), 'bug12: tc_create_poll() shipped');
+  ['vc-q','vc-options','vc-multi','vc-vis','vc-aud','vc-quorum','vc-close']
+    .forEach(i => ok(vt.indexOf('id="' + i + '"') > -1, 'bug12: control #' + i));
+  ok(/data-preset="days"/.test(vt), 'bug12: option presets, so nothing is typed twice');
+  ok(/string_agg\(value #>> '\{\}', '\|'\)/.test(sql),
+     'bug12: options are stored in the shape polls.options actually uses');
+
+  // --- 13. e-receipts ---
+  const pay = fs.readFileSync(path.join(ROOT, 'payments.html'), 'utf8');
+  ok(!/select\('id,total,parent_id/.test(pay), 'bug13: the invoices.total typo is gone');
+  ok(/select\('id,amount,parent_id/.test(pay), 'bug13: invoices.amount is used');
+  ok(/tries\+\+ < 25/.test(pay), 'bug13: the panel waits for Supabase instead of giving up');
+  ok(/🧾 Receipt/.test(crud), 'bug13: a receipt can be printed from the payment row itself');
+
+  // --- 14. stream editing ---
+  ok(/stream: \{ table: 'stream_posts'/.test(crud), 'bug14: stream posts have a CRUD schema');
+  const st = fs.readFileSync(path.join(ROOT, 'stream.html'), 'utf8');
+  ok(/stream-crud/.test(st), 'bug14: stream.html renders the workbench');
+  ok(/CRUD\.renderList\('stream'/.test(st), 'bug14: edit and delete are available');
+
+  // --- 15. dropdowns instead of typing ---
+  ok(/type === 'lookup'/.test(crud), 'bug15: a lookup control type exists');
+  ok((crud.match(/type: 'lookup'/g) || []).length >= 15,
+     'bug15: at least 15 free-text entity fields became dropdowns');
+  ok(/Type a new one/.test(crud), 'bug15: a genuinely new value is still possible');
+  ok(/data-lookup-select/.test(crud), 'bug15: the dropdown and the text box stay in step');
+
+  // --- 16. predefined prompts on the bot ---
+  const cb = fs.readFileSync(path.join(ROOT, 'assets/js/chatbot.js'), 'utf8');
+  ok(/suggestions: function/.test(cb), 'bug16: the assistant offers predefined prompts');
+  ok(/tc-bot-chips/.test(cb), 'bug16: prompt chips are rendered');
+
+  // --- 2FA (requested) ---
+  ['tc_mfa_status','tc_mfa_record','tc_mfa_report'].forEach(f =>
+    ok(new RegExp('function public\\.' + f).test(sql), '2fa: ' + f + '() shipped'));
+  ok(/create table if not exists public\.user_mfa/.test(sql), '2fa: enrolment is tracked');
+  const sc2 = fs.readFileSync(path.join(ROOT, 'security-centre.html'), 'utf8');
+  ok(/sb\.auth\.mfa\.enroll/.test(sc2), '2fa: enrolment uses Supabase Auth TOTP (free)');
+  ok(/sb\.auth\.mfa\.verify/.test(sc2), '2fa: the code is verified');
+  ok(/mfa_required_roles/.test(sql), '2fa: the studio can require it per role');
+  ok(/never sees or stores a secret/.test(sc2), '2fa: the page states what is and is not stored');
 
   return Promise.resolve();
 })());
