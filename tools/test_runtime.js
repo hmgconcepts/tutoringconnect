@@ -1606,6 +1606,136 @@ PENDING.push((function () {
   return Promise.resolve();
 })());
 
+
+/* ==========================================================================
+   V21 — HMG ACADEMY CBT PRO PARITY, LUMEN, POPUP LEGIBILITY
+   ========================================================================== */
+PENDING.push((function () {
+  const cbtjs = fs.readFileSync(path.join(ROOT, 'assets/js/cbt.js'), 'utf8');
+  const css   = fs.readFileSync(path.join(ROOT, 'assets/css/style.css'), 'utf8');
+  const app   = fs.readFileSync(path.join(ROOT, 'assets/js/app.js'), 'utf8');
+  const sh    = fs.readFileSync(path.join(ROOT, 'assets/js/site-help.js'), 'utf8');
+  const sql   = fs.readFileSync(path.join(ROOT, 'database/complete-schema.sql'), 'utf8');
+  const tp    = path.join(ROOT, 'assets/js/cbt-types.js');
+
+  // ---------- ITEM 1a: the 17 question-type renderers ----------
+  ok(fs.existsSync(tp), 'v21: cbt-types.js ships');
+  const types = fs.readFileSync(tp, 'utf8');
+  ['mcq','multi_select','true_false','short_answer','numeric','multi_numeric','cloze',
+   'matching','ordering','categorization','matrix','hot_text','essay','code',
+   'assertion_reason','case_study','image_based'].forEach(t =>
+    ok(new RegExp('\\n    ' + t + ': function').test(types), 'v21 renderer: ' + t));
+  ['mrq','tf','short','fill_blank','image_mcq','scenario_mcq','comprehension','likert',
+   'drag_drop','classification','error_spotting'].forEach(a =>
+    ok(new RegExp("\\b" + a + ": '").test(types), 'v21 alias: ' + a + ' maps to a renderer'));
+
+  // live behaviour, not just presence
+  const td = mkdom(); loadScripts(td, ['assets/js/cbt-types.js']);
+  const T = td.window.CBTTypes;
+  ok(!!T, 'v21: CBTTypes is exported');
+  ok(T.supports('matching') && T.supports('mrq') && T.supports('hot_text'),
+     'v21: supports() covers real and aliased types');
+  ok(T.render({ type: 'matching', pairs: [{ left: 'Na', right: 'Sodium' }] }, 'q').indexOf('tcq-match') > -1,
+     'v21: matching renders a match table, not a text box');
+  ok(T.render({ type: 'ordering', items: ['a', 'b'] }, 'q').indexOf('draggable="true"') > -1,
+     'v21: ordering renders a draggable list');
+  ok(T.render({ type: 'hot_text', items: [{ text: '2', correct: true }] }, 'q').indexOf('tcq-chip') > -1,
+     'v21: hot text renders tappable chips');
+  ok(T.render({ type: 'cloze', question: 'F = ___ x ___' }, 'q').indexOf('tcq-blank') > -1,
+     'v21: cloze puts inputs inline at each blank');
+  ok(T.render({ type: 'matrix', items: [{ statement: 's', answer: 'True' }], accept: 'True|False' }, 'q').indexOf('tcq-matrix') > -1,
+     'v21: matrix renders a grid');
+
+  // partial credit
+  const g1 = T.grade({ type: 'ordering', items: ['a','b','c'], answer: ['a','b','c'], mark: 3 }, ['a','c','b']);
+  ok(g1.earned === 1 && g1.max === 3, 'v21: ordering awards partial credit (1 of 3 in place)');
+  const g2 = T.grade({ type: 'numeric', answer: 10, tolerance: 0.5, mark: 2 }, '10.4');
+  ok(g2.earned === 2, 'v21: numeric honours tolerance');
+  const g3 = T.grade({ type: 'essay', items: { min_words: 5, keywords: ['alpha'] }, mark: 4 }, 'alpha one two three four five');
+  ok(g3.pending === true, 'v21: essays are flagged for tutor review, never auto-final');
+  const g4 = T.grade({ type: 'multi_select', answer: ['a','b'], mark: 2, all_or_nothing: true }, ['a']);
+  ok(g4.earned === 0, 'v21: all-or-nothing MRQ scores zero on a partial answer');
+
+  // ---------- ITEM 1b: the restructured prompt ----------
+  const pdom = mkdom(); pdom.window.PRACTICE = { name: 'X' };
+  loadScripts(pdom, ['assets/js/cbt.js']);
+  const prompt = pdom.window.CBT.promptPack('SS2', 'Photosynthesis', 20, 'SS2',
+    { subject: 'Biology', examType: 'WAEC' });
+  ok(prompt.length > 5000, 'v21 prompt: substantially expanded (>5k chars)');
+  ok(/QUESTION TYPE DISTRIBUTION/.test(prompt), 'v21 prompt: has an explicit type distribution');
+  const dm = prompt.match(/^(mcq=.*)$/m);
+  ok(!!dm, 'v21 prompt: the distribution line is present');
+  if (dm) {
+    const total = dm[1].split(', ').reduce((a, x) => a + Number(x.split('=')[1] || 0), 0);
+    ok(total === 20, 'v21 prompt: the distribution sums EXACTLY to the requested count');
+  } else { R.skip++; }
+  ok(/PER-TYPE COLUMN RULES/.test(prompt), 'v21 prompt: per-type column rules');
+  ok(/Question,A,B,C,D,CorrectAnswer,Explanation,Type,Tolerance,Unit,Accept,MRQ_AON,Pairs,Items,Difficulty,Tags,Section/.test(prompt),
+     'v21 prompt: the full 17-column HMG header');
+  ok(/DOWNLOADABLE \.CSV FILE/.test(prompt), 'v21 prompt: demands a downloadable file');
+  ['multi_numeric','matching','ordering','cloze','categorization','matrix','hot_text',
+   'assertion_reason','case_study','image_mcq','essay','code'].forEach(t =>
+    ok(prompt.indexOf('\n' + t + ' -') > -1, 'v21 prompt: rules for ' + t));
+
+  // ---------- ITEM 2: the HMG / School Connect CSV ----------
+  ok(/if \(q && line\[i \+ 1\] === '"'\)/.test(cbtjs),
+     'item2: "" is an escaped quote ONLY inside a quoted field (RFC 4180)');
+  const C = pdom.window.CBT;
+  const csv = [
+    'Question,A,B,C,D,CorrectAnswer,Explanation,Type,Tolerance,Unit,Accept,MRQ_AON,Pairs,Items',
+    '"What is 2+2?","3","4","5","6","B","","mcq","","","","","",""',
+    '"Match","","","","","","","matching","","","","","[{""left"":""Na"",""right"":""Sodium""}]",""',
+    '"Speed","","","","","12.5","","numeric","0.5","m/s","","","",""',
+    '"Order","","","","","","","ordering","","","","","","[""A"",""B"",""C""]"'
+  ].join('\n');
+  const parsed = C.parseCSV(csv);
+  ok(parsed.length === 4, 'item2: a real HMG CSV parses all rows');
+  const numeric = parsed.filter(q => q.type === 'numeric')[0];
+  ok(numeric && numeric.unit === 'm/s', 'item2: the Unit column is read');
+  ok(numeric && String(numeric.tolerance) === '0.5', 'item2: the Tolerance column is read');
+  const mcqRow = parsed[0];
+  ok(mcqRow && mcqRow.unit === '', 'item2: an EMPTY quoted field is empty, not a stray quote');
+  const match = parsed.filter(q => q.type === 'matching')[0];
+  ok(match && Array.isArray(match.pairs) && match.pairs.length === 1, 'item2: the Pairs JSON column is parsed');
+  const order = parsed.filter(q => q.type === 'ordering')[0];
+  ok(order && Array.isArray(order.items) && order.items.length === 3, 'item2: the Items JSON column is parsed');
+  ok(/CSV_HEADERS_HMG/.test(cbtjs), 'item2: the HMG header set is published for the template');
+
+  // cbt.js delegates to the advanced renderer
+  ok(/window\.CBTTypes && CBTTypes\.supports\(q\.type\)/.test(cbtjs),
+     'v21: renderQuestion delegates to CBTTypes');
+  ok(/CBTTypes\.collect/.test(cbtjs), 'v21: collectAnswers understands the new controls');
+  ok(/CBTTypes\.grade/.test(cbtjs), 'v21: gradeOne uses the partial-credit grader');
+
+  // ---------- ITEM 3: the studio name ----------
+  ok(/PLACEHOLDER = \/\^\(lumen tutoring studio/.test(app),
+     'item3: a legacy seeded name can no longer override the studio name');
+  ok(/name ilike '%lumen%'/.test(sql), 'item3: the database row is rewritten');
+  ['README.md'].forEach(f => {
+    const fp = path.join(ROOT, f);
+    if (!fs.existsSync(fp)) { R.skip++; return; }
+    ok(!/Lumen/i.test(fs.readFileSync(fp, 'utf8')), 'item3: no "Lumen" in ' + f);
+  });
+
+  // ---------- ITEM 4: popup legibility, at source ----------
+  ok(/class="tc-popup"/.test(sh), 'item4: the Page Help popup carries a class');
+  ok(/background:#ffffff;color:#0f172a/.test(sh),
+     'item4: the Page Help popup sets its colour INLINE (inline styles beat any stylesheet)');
+  ok(/\.tc-popup,/.test(css), 'item4: .tc-popup is styled');
+  ok(/#tc-bot-panel \{ background: #ffffff !important/.test(css),
+     'item4: the assistant panel no longer depends on a theme variable');
+  ok(/body\.dark-mode \.tc-popup/.test(css), 'item4: dark mode keeps popups legible');
+  ok(/#notif-dropdown, \.notif-dropdown/.test(css), 'item4: the notification dropdown is covered');
+
+  // ---------- question-type CSS ----------
+  ['tcq-opt','tcq-match','tcq-order','tcq-chip','tcq-matrix','tcq-blank','tcq-parts',
+   'tcq-passage','tcq-ar','tcq-figure','tcq-code'].forEach(c =>
+    ok(new RegExp('\\.' + c + '\\b').test(css), 'v21 css: .' + c));
+  ok(/min-height:44px/.test(css), 'v21 css: touch targets are at least 44px (phone-first)');
+
+  return Promise.resolve();
+})());
+
 /* --------------------------------------------------------------- report */
 Promise.all(PENDING).then(function () {
 console.log(`  PASS ${R.pass}` + (R.skip ? `   (${R.skip} generator-only checks skipped)` : ''));
