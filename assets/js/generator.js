@@ -47,7 +47,7 @@ console.log('[Tutoring Connect] config —', window.PRACTICE.name);
     'forgot-password.html','change-password.html','profile.html','feature-guide.html','developer.html',
     'hmg-ecosystem.html','hmg-products.html','notifications.html',
     'assets/css/style.css',
-    'assets/js/app.js','assets/js/legibility.js','assets/js/crud.js','assets/js/insights.js','assets/js/super.js',
+    'assets/js/app.js','assets/js/rbac.js','assets/js/legibility.js','assets/js/crud.js','assets/js/insights.js','assets/js/super.js',
     'assets/js/cbt.js','assets/js/cbt-types.js','assets/js/proctor.js','assets/js/drive-sync.js','assets/js/data-portability.js',
     'assets/js/bookings-engine.js','assets/js/catalog.js','assets/js/license.js',
     'assets/js/media.js','assets/js/brand.js','assets/js/notifications.js','assets/js/pwa-install.js',

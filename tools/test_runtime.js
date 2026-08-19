@@ -1910,6 +1910,160 @@ PENDING.push((function () {
   return Promise.resolve();
 })());
 
+
+/* ==========================================================================
+   V23 — THE 13 REPORTED ITEMS
+   ========================================================================== */
+PENDING.push((function () {
+  const sql  = fs.readFileSync(path.join(ROOT, 'database/complete-schema.sql'), 'utf8');
+  const kit  = fs.readFileSync(path.join(ROOT, 'assets/js/cbt-exam-kit.js'), 'utf8');
+  const crud = fs.readFileSync(path.join(ROOT, 'assets/js/crud.js'), 'utf8');
+  const app  = fs.readFileSync(path.join(ROOT, 'assets/js/app.js'), 'utf8');
+
+  /* ---- ITEM 1: a blank paper must score ZERO ---- */
+  const td = mkdom(); loadScripts(td, ['assets/js/cbt-types.js']);
+  const T = td.window.CBTTypes;
+  ok(typeof T.isBlank === 'function', 'item1: a real blankness test exists');
+  ok(T.isBlank('') && T.isBlank([]) && T.isBlank(null) && T.isBlank({}) && T.isBlank(['', null]),
+     'item1: "", [], null, {} and [""] all count as unanswered');
+  ok(!T.isBlank('b') && !T.isBlank(['a']), 'item1: a real answer is not blank');
+  // the exact reported case: a question whose key is missing
+  ok(T.grade({ type: 'mcq', options: ['a','b'], mark: 1 }, '').earned === 0,
+     'item1: no key + no answer scores ZERO (was full marks)');
+  ok(T.grade({ type: 'mcq', options: ['a','b'], answer: '', mark: 1 }, '').earned === 0,
+     'item1: blank key + no answer scores ZERO');
+  ok(T.grade({ type: 'true_false', mark: 1 }, '').earned === 0,
+     'item1: true/false with no key scores ZERO');
+  /* An unkeyed question is only "unmarkable" once someone actually answers
+     it — a blank is blank first, whatever the key says. Both guards matter,
+     and they fire in that order. */
+  ok(T.grade({ type: 'mcq', options: ['a','b'], mark: 1 }, 'a').unmarkable === true,
+     'item1: answering an unkeyed question is reported as unmarkable, not marked right');
+  ok(T.grade({ type: 'mcq', options: ['a','b'], mark: 1 }, 'a').earned === 0,
+     'item1: and it scores zero rather than full marks');
+  ok(T.grade({ type: 'mcq', options: ['a','b'], answer: 'b', mark: 1 }, '').blank === true,
+     'item1: a blank answer is labelled blank');
+  // a whole blank paper
+  let total = 0;
+  [['mcq', 'b'], ['mcq', ''], ['short_answer', 'x'], ['numeric', 5], ['true_false', 'True']]
+    .forEach(([ty, key]) => { total += T.grade({ type: ty, options: ['a','b'], answer: key, mark: 1 }, '').earned; });
+  ok(total === 0, 'item1: a five-question blank paper scores 0 (was 3/20 in testing)');
+  // and a real answer still scores
+  ok(T.grade({ type: 'mcq', options: ['a','b'], answer: 'b', mark: 1 }, 'b').earned === 1,
+     'item1: a correct answer still scores');
+  // the answered counter
+  ok(/CBTTypes\.isBlank/.test(kit), 'item1: the answered-counter uses the same blankness test');
+  ok(!/if \(a !== undefined && a !== null && a !== ''\) answered\+\+/.test(kit),
+     'item1: the old counter that treated [] as answered is gone');
+  const cbtjs2 = fs.readFileSync(path.join(ROOT, 'assets/js/cbt.js'), 'utf8');
+  ok(/if \(_blank\(given\)\) return \{ ok: false, mark: 0/.test(cbtjs2),
+     'item1: the legacy grader is guarded the same way');
+
+  /* ---- ITEM 2: the legend covers every type ---- */
+  loadScripts(td, ['assets/js/cbt.js']);
+  const allTypes = td.window.CBT.allTypes();
+  const legend = T.legendHTML();
+  const srcT = fs.readFileSync(path.join(ROOT, 'assets/js/cbt-types.js'), 'utf8');
+  const noteKeys = [...srcT.matchAll(/^\s{4}([a-z_]+): '/gm)].map(m => m[1]);
+  const orderList = JSON.parse('[' + srcT.match(/var order = \[([\s\S]*?)\];/)[1]
+    .replace(/'/g, '"').replace(/\s+/g, '') + ']');
+  const uncovered = allTypes.filter(t => orderList.indexOf(t) === -1 && noteKeys.indexOf(t) === -1);
+  ok(uncovered.length === 0,
+     'item2: the legend explains ALL ' + allTypes.length + ' types (' + uncovered.join(',') + ')');
+  ok(legend.length > 4000, 'item2: the legend is substantial');
+  ok(/An unanswered question always scores zero/.test(legend),
+     'item2: the legend tells learners a blank always scores zero');
+
+  /* ---- ITEM 3: the audit shows the per-question trail ---- */
+  ok(/jsonb_typeof\(r\.per_question\) = 'array' and jsonb_array_length\(r\.per_question\) > 0/.test(sql),
+     'item3: the audit picks the first source that actually HAS rows');
+  ok(!/'per_question',coalesce\(r\.per_question, r\.review/.test(sql),
+     'item3: the coalesce that always returned the empty default is gone');
+  const exhtml = fs.readFileSync(path.join(ROOT, 'cbt-exam.html'), 'utf8');
+  ['per_question','started_at','finished_at','duration_sec','is_anonymous','attempt_no','user_agent','exam_code']
+    .forEach(k => ok(new RegExp('\\b' + k + ':').test(exhtml), 'item3: the runner now sends ' + k));
+
+  /* ---- ITEM 4: full management on EVERY paper ---- */
+  const crh = fs.readFileSync(path.join(ROOT, 'cbt-results.html'), 'utf8');
+  ['toggle','share','wa','sit','preview','edit','questions','export','archive','delete']
+    .forEach(a => ok(crh.indexOf('data-a="' + a + '"') > -1, 'item4: management action "' + a + '"'));
+  ok(/data-man=/.test(crh), 'item4: a Manage button sits beside every paper');
+
+  /* ---- ITEM 5: multi-subject topics ---- */
+  const pr = fs.readFileSync(path.join(ROOT, 'cbt-prompts.html'), 'utf8');
+  ok(/id="subject-topics"/.test(pr), 'item5: a topic box per subject');
+  ok(/data-hide="subjects"/.test(pr), 'item5: the single Subject/Topic fields hide for a multi-subject pack');
+  ok((pr.match(/data-hide="subjects"/g) || []).length >= 2, 'item5: BOTH irrelevant fields hide');
+  const pdm = mkdom(); pdm.window.PRACTICE = { name: 'X' };
+  loadScripts(pdm, ['assets/js/cbt.js']);
+  const ms = pdm.window.CBT.promptPack('multi_subject', '(ignored)', 9, 'JSS2',
+    { subjects: 'Mathematics, English', subjectTopics: { Mathematics: 'Algebra', English: 'Comprehension' } });
+  ok(/Mathematics: Algebra/.test(ms) && /English: Comprehension/.test(ms),
+     'item5: the prompt carries a topic per subject');
+  ok(/do NOT apply one topic to all/.test(ms), 'item5: and forbids one shared topic');
+
+  /* ---- ITEMS 6,7,9,10,11: role mapping ---- */
+  const rb = path.join(ROOT, 'assets/js/rbac.js');
+  ok(fs.existsSync(rb), 'item11: rbac.js ships');
+  const rd = mkdom(); loadScripts(rd, ['assets/js/rbac.js']);
+  const R = rd.window.RBAC;
+  ok(!!R, 'item11: RBAC is exported');
+  if (R) {
+    // 6 + 9 — hidden from BOTH families
+    ['sessions','session-complete','practice','exam-targets','idcards','learners',
+     'engagements','makeup-credits','groups','tutors'].forEach(p => {
+      ok(R.level(p, 'student') === 'none', 'item6: ' + p + ' hidden from students');
+      ok(R.level(p, 'parent') === 'none',  'item9: ' + p + ' hidden from parents');
+    });
+    // 7 + 10 — read-only for BOTH families
+    ['bookings','goals','attendance','mastery','assignments','reading','classwork','stream',
+     'scoresheet','progress-reports','learner-360','resources','library','lms','eresources',
+     'flashcards','certificates','voting','polls','gallery','events','reminders','study-log']
+      .forEach(p => {
+        ok(R.level(p, 'student') === 'read', 'item7: ' + p + ' is read-only for students');
+        ok(R.level(p, 'parent') === 'read',  'item10: ' + p + ' is read-only for parents');
+      });
+    // 11 — money and admin separation
+    ok(R.level('invoices', 'parent') === 'read', 'item11: a parent reads invoices');
+    ok(R.level('invoices', 'student') === 'none', 'item11: a learner never sees invoices');
+    ok(R.level('payroll', 'tutor') === 'none', 'item11: a tutor cannot reach payroll');
+    ok(R.level('license', 'tutor') === 'none', 'item11: a tutor cannot reach the licence');
+    ok(R.level('attendance', 'tutor') === 'write', 'item11: a tutor still records attendance');
+    ok(R.level('payroll', 'admin') === 'write', 'item11: admin retains everything');
+    // deny by default
+    ok(R.level('some-brand-new-page', 'student') === 'none',
+       'item11: an unlisted page is denied to families by default');
+    ok(typeof R.makeReadOnly === 'function', 'item7/10: a read-only mode exists');
+  } else { R2skip(); }
+  function R2skip() { R.skip += 60; }
+  ok(/RBAC\.level\(location\.pathname/.test(crud),
+     'item11: crud.js refuses writes where the role is read-only');
+  ok(/tc:role/.test(app), 'item11: app.js announces the role to RBAC');
+
+  /* ---- ITEM 8: change password ---- */
+  const cp = fs.readFileSync(path.join(ROOT, 'change-password.html'), 'utf8');
+  ['cp-old','cp-new','cp-new2','cp-save','cp-meter','cp-signout-all']
+    .forEach(i => ok(cp.indexOf('id="' + i + '"') > -1, 'item8: control #' + i));
+  ok(/auth\.updateUser\(\{ password/.test(cp), 'item8: it actually changes the password');
+  ok(/signInWithPassword/.test(cp), 'item8: the current password is re-verified first');
+  ok(/scope: 'global'/.test(cp), 'item8: sign out everywhere');
+  ok(/COMMON/.test(cp), 'item8: a real strength meter, as the page promised');
+
+  /* ---- ITEM 12: nav spelling ---- */
+  let dbl = 0;
+  fs.readdirSync(ROOT).filter(f => f.endsWith('.html')).forEach(f => {
+    const c = fs.readFileSync(path.join(ROOT, f), 'utf8');
+    dbl += (c.match(/&amp;amp;/g) || []).length;
+  });
+  ok(dbl === 0, 'item12: no double-escaped ampersands remain (' + dbl + ')');
+  const dash = fs.readFileSync(path.join(ROOT, 'dashboard.html'), 'utf8');
+  ['Goals &amp; learning plans', 'Voting &amp; polls', 'Reviews &amp; testimonials',
+   'Workshops &amp; events', 'Streaks &amp; badges'].forEach(l =>
+    ok(dash.indexOf(l) > -1, 'item12: "' + l.replace('&amp;', '&') + '" renders correctly'));
+
+  return Promise.resolve();
+})());
+
 /* --------------------------------------------------------------- report */
 Promise.all(PENDING).then(function () {
 console.log(`  PASS ${R.pass}` + (R.skip ? `   (${R.skip} generator-only checks skipped)` : ''));
