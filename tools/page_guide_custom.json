@@ -46,14 +46,16 @@
   "connects": "Linked from the landing page and every footer; indexed for search."
  },
  "contact.html": {
-  "purpose": "Every way to reach the studio — WhatsApp, email, phone and social — plus an enquiry form that lands directly in the staff CRM.",
-  "audience": "Public.",
-  "why": "A parent who cannot reach you in under a minute contacts the next tutor on their list.",
+  "purpose": "How to reach the studio, and a form that actually delivers. Shows the studio's phone, WhatsApp, email, address and teaching hours in the visitor's own time zone, a map link, the response time to expect, and a message form that writes into the studio's inbox so nothing depends on an email client being configured.",
+  "audience": "Anyone. No sign-in needed.",
+  "why": "For a tutoring studio the contact page is a sales page. A parent who cannot see a phone number, cannot tell whether you are open, and gets no acknowledgement after writing, contacts the next tutor instead.",
   "how": [
-   "Choose the channel you prefer; WhatsApp and email open your own device app.",
-   "Or submit the form and the studio replies from the Inquiries board."
+   "Use the WhatsApp or call button for anything urgent — both are one tap on a phone.",
+   "Check the teaching hours: they are shown converted into your own time zone, not the studio's.",
+   "Use the form for anything that needs a written record. You get a reference number back.",
+   "Choose the right subject on the form — it routes the message to the right person and sets the response time you are promised."
   ],
-  "connects": "Writes to the inquiries table, which staff triage in the Inquiries/CRM module."
+  "connects": "Messages land in the studio Inbox and, when they are an enquiry, on the Inquiries page. Linked from every footer and from the public landing page."
  },
  "forgot-password.html": {
   "purpose": "Sends a secure password-reset link by email through Supabase Auth. Nobody at the studio can see or set your password.",
@@ -100,14 +102,16 @@
   "connects": "Served automatically by sw.js whenever a navigation request fails."
  },
  "developer.html": {
-  "purpose": "Credits the build, documents the technology stack and the design constraints, and links to HMG Technologies for studios wanting bespoke work.",
-  "audience": "Public, and technically-minded readers.",
-  "why": "Transparency about the stack is part of the pitch: no vendor lock-in, no recurring platform fee, and the client owns the source.",
+  "purpose": "Who built and maintains this platform: HMG Concepts, the product family it belongs to, the technology it runs on, the support and licensing position, and how to commission a build of your own.",
+  "audience": "Anyone. Public and indexed.",
+  "why": "A parent handing over a child's data, and a school considering a licence, both want to know who is behind the software and whether it will still be maintained next year. Vagueness here costs sales.",
   "how": [
-   "Read the architecture and constraint summary.",
-   "Follow the ecosystem links to the wider HMG network."
+   "Read who maintains the platform and how to reach them.",
+   "Check the technology and hosting statement if you are doing due diligence.",
+   "Follow the ecosystem links to the other products.",
+   "Use the commission link if you want a build for your own organisation."
   ],
-  "connects": "Part of the HMG Concepts ecosystem link graph, which is also how the sites reinforce each other for search."
+  "connects": "Links to HMG Digital Products, HMG Ecosystem and the studio's Contact page."
  },
  "site-index.html": {
   "purpose": "A complete, human-readable index of every page in the studio, grouped by function — the fastest way to find a module when you know what it is called but not where it lives.",
@@ -215,5 +219,294 @@
    "Export any result set to CSV for a mark book or a parent meeting."
   ],
   "connects": "Papers are built in cbt-multi.html and sat in cbt-exam.html. Learners see their own review in cbt-review.html. Graded results push to scoresheet.html. Submission alerts also appear in notifications.html."
+ },
+ "at-risk.html": {
+  "purpose": "A board of learners the studio is worried about, and — the part that was missing — what was decided about each one. The rule engine raises a flag from falling scores, attendance below 80%, missing homework, no activity for 14 days or fewer than two hours taught. The desk below the board is where a tutor records the evidence, the action agreed, whether the parent has been told and when the case will be looked at again.",
+  "audience": "Tutors and administrators. A tutor sees only the learners assigned to them; an administrator sees everyone. Families never open this page.",
+  "why": "A flag with no recorded action is a complaint waiting to happen. When a parent asks \"you knew in March — what did you do?\", this page is the answer. It is also the earliest point at which a learner can be saved, which is cheaper than replacing them.",
+  "how": [
+   "Read the summary strip: how many cases are open, how many are urgent, how many are overdue for review, and how many parents have not been told yet.",
+   "Pick the learner and record what you actually observed, with dates and numbers.",
+   "Write the action agreed. \"Monitor\" is not an action; \"extra 30-minute clinic on Thursdays for four weeks\" is.",
+   "Set a review date, and tick <b>Parent informed</b> once you have made the call.",
+   "When the concern has passed, tick <b>Resolved</b> and write the outcome — that is what builds the studio's evidence base."
+  ],
+  "connects": "Reads the same session, attendance and score data as Learner 360 and the Scoresheet. Cases raised here usually end up in a Progress report or a Parent conference."
+ },
+ "analytics.html": {
+  "purpose": "Two things on one page. The top half is the studio's automatic analysis — score bands, new learners, attendance, the enquiry funnel and fee collection, all computed from live rows. The bottom half is a practice desk where a tutor records work done OFF the platform: past papers, worksheets, weekend problem sets and anything set by a school.",
+  "audience": "Tutors and administrators. A tutor's figures cover only their own learners.",
+  "why": "For an exam-preparation studio, most practice does not happen in a browser. Counting only platform quizzes understates what a learner has done, sometimes by a factor of five, and makes the analytics an argument nobody can win.",
+  "how": [
+   "Read the eight headline figures first — they are counts, not estimates.",
+   "Open the charts underneath for the shape behind each figure.",
+   "Scroll to the practice desk and log any off-platform work: subject, topic, where it came from, questions set and questions correct.",
+   "Accuracy is computed by the database from those two numbers, so it can never disagree with them.",
+   "Export to CSV when you want the numbers in a spreadsheet."
+  ],
+  "connects": "Shares its source data with Insights Lab, Group insights and Learner 360. Practice records feed the practice totals shown on a learner's 360 view."
+ },
+ "value-added.html": {
+  "purpose": "The studio's central commercial claim, recorded properly: the learner arrived at 42%, is now at 68%, and here is where each of those numbers came from. Every entry carries a baseline, the source of that baseline, a current score and optionally the score a typical learner would have reached in the same time. The value added is computed by the database, never typed.",
+  "audience": "Tutors and administrators enter the data. A family sees an entry only once it is ticked as published.",
+  "why": "\"They have improved\" is an opinion. \"They moved from 42% on their December school report to 68% on the March mock, against an expected 55%\" is evidence, and it is what justifies the fee at renewal time.",
+  "how": [
+   "Choose the learner, the subject and the period.",
+   "Enter the baseline and — this is required — say where the baseline came from. An unsourced baseline is not evidence.",
+   "Enter the current score. Add the expected score if you have a cohort figure; the value added is then measured against it rather than against the baseline.",
+   "Set your confidence honestly. A low-confidence figure you have labelled is more useful than a high-confidence figure you have not.",
+   "Tick <b>Visible to the family</b> only when you are happy for a parent to read it."
+  ],
+  "connects": "Draws on the Scoresheet for current scores and feeds Progress reports and Predicted grades."
+ },
+ "predictions.html": {
+  "purpose": "Predicted grades on the scale that actually applies — WAEC A1–F9, GCSE 9–1, A-Level A*–E, IB 1–7, SAT 400–1600, IELTS bands — with the exam board, the sitting, the evidence behind the prediction and what would change it.",
+  "audience": "Tutors and administrators. A family sees a prediction only when it is published.",
+  "why": "A predicted grade is a professional judgement, not a percentage, and it cannot be computed. It is also the single number a parent quotes back to you, so it needs a written basis and a stated confidence attached to it from the moment it is made.",
+  "how": [
+   "Pick the learner, subject, exam board and grading scale — all from lists, so the data stays reportable.",
+   "Enter the grade now and the predicted grade, and the target if one was agreed.",
+   "Write the basis. \"Mean 72% over six graded papers, upward trend, full attendance\" is a basis; \"looks strong\" is not.",
+   "Record what would change the prediction, so nobody is surprised later.",
+   "Publish it when you are ready for the family to see it."
+  ],
+  "connects": "Uses marks from the Scoresheet and targets from Exam targets. Published predictions appear on Progress reports and Learner 360."
+ },
+ "group-insights.html": {
+  "purpose": "Observations that belong to a whole group rather than to any one child: the topic the entire set has not met, the slot that loses a third of the room, the week homework collapsed. Each entry carries the period, the headline numbers for the group, the observation, the action for the next cycle and a review date.",
+  "audience": "Tutors and administrators. A group's families see an entry only if it is published.",
+  "why": "Recorded against a learner, a group-level observation is simply wrong — it attributes to one child something that is true of eleven. Group teaching also fails in group-shaped ways, and those patterns are invisible in per-learner analytics.",
+  "how": [
+   "Choose the group and the period.",
+   "Fill the headline numbers: headcount, average score, attendance and homework completion.",
+   "Name the strongest and weakest topics — this is what shapes the next scheme of work.",
+   "Write the observation and the action. Both are required, because an observation with no action changes nothing.",
+   "Set a review date and publish if the families should see it."
+  ],
+  "connects": "Sits alongside Practice analytics and the At-risk board. Actions recorded here normally end up in the Scheme of work or a Lesson plan."
+ },
+ "insights.html": {
+  "purpose": "A working notebook for the studio. The charts at the top show a learner's score trajectory and the flags the rule engine has raised. The desk below is where a hypothesis is written down BEFORE it is acted on — with the evidence, the proposed action, how you will know whether it worked, and eventually what actually happened.",
+  "audience": "Tutors and administrators. Notes are visible to their author, to the tutor of the learner or group concerned, and to administrators.",
+  "why": "Teaching decisions are made on hunches all the time. Writing the hunch down with a measurable test is the difference between a studio that improves and one that merely has opinions. The outcome field is the point of the page.",
+  "how": [
+   "Give the note a title and say what it is about: a learner, a group, a subject or the studio as a whole.",
+   "Write the observation and the evidence — numbers and dates, or it is an opinion.",
+   "State how you will know it worked. This field is required on purpose.",
+   "Move the status along as you go: open → testing → confirmed or rejected.",
+   "Record the outcome. A rejected hypothesis with a written outcome is worth as much as a confirmed one."
+  ],
+  "connects": "Draws on the same flags as the At-risk board and the same scores as Practice analytics. Confirmed findings usually change the Scheme of work or the Methodologies page."
+ },
+ "scoresheet.html": {
+  "purpose": "The single ledger of everything a learner has been marked on. Graded quizzes and scheme-of-work evaluations arrive automatically; the entry desk is for everything else a tutor marks — a mock, a homework set, a piece of classwork, a paper marked on paper. The percentage is computed by the database from the score and the total.",
+  "audience": "Tutors and administrators enter marks. A parent sees only their own children, a learner only themselves, and only rows marked visible.",
+  "why": "A scoresheet with only the automatic rows in it is a partial picture, and a partial picture is the one a parent will find the hole in. Computing the percentage in the database means a hand-entered row can never contradict itself, which was previously the commonest error on this page.",
+  "how": [
+   "Pick the learner and the subject, then describe what the mark was for.",
+   "Enter the score and the total. Do not enter a percentage — it is worked out for you.",
+   "Set the weight if this assessment should count more than a normal one towards a term average.",
+   "Add a comment the family will read, or untick <b>Visible to the family</b> to keep the mark internal for now.",
+   "Use <b>Save &amp; add another</b> when marking a whole class — the learner, subject and date are kept."
+  ],
+  "connects": "Feeds Progress reports, Value-added, Predicted grades, Learner 360 and the At-risk rule engine."
+ },
+ "progress-reports.html": {
+  "purpose": "The parent-facing report, built and printed here. One row per subject, each with its own mark, grade, effort rating and comment, plus attendance, homework completion, hours taught, strengths, areas to improve and the tutor's comment. A report stays a DRAFT — watermarked as such when printed — until it is published.",
+  "audience": "Tutors write reports for their own learners; administrators can write and publish any. A parent sees a report only once its status is published.",
+  "why": "This is the document a family keeps, forwards to a school and judges the studio by. It is also the commonest place for a half-written comment to escape, which is why publishing is a deliberate, separate act.",
+  "how": [
+   "Choose the learner and name the period.",
+   "Press <b>Add a subject row</b> for each subject, and fill in the mark, grade, effort and comment.",
+   "Complete attendance, homework and hours — these are the figures parents check first.",
+   "Write the strengths, the areas to improve and your comment. All three are required.",
+   "Leave the status on <b>draft</b> while you work. Use <b>🖨 Print</b> to proofread — a draft prints with a DRAFT watermark.",
+   "Change the status to <b>published</b> when it is ready. The publication time is stamped automatically."
+  ],
+  "connects": "Pulls marks from the Scoresheet, attendance from the register, and hours from the hour bank. Published reports appear on Learner 360 and in the parent's portal."
+ },
+ "timezones.html": {
+  "purpose": "Who is where, and when they will actually teach or learn. Live clocks for every zone the studio touches, and a desk that records the facts a conversion depends on: this tutor is in Lagos and will not start before 07:00, this family is in Toronto and observes daylight saving, this board publishes results in UTC.",
+  "audience": "Tutors and administrators maintain the entries. Everyone signed in can read them — knowing when the tutor is available is the whole point.",
+  "why": "A studio teaching across continents loses classes to arithmetic. Recording each person's own working window, in their own local time, turns \"what time works for you?\" into a lookup rather than an email thread.",
+  "how": [
+   "Add an entry for each tutor, each international family and the studio itself.",
+   "Pick the IANA time zone from the list — the UTC offset fills itself in.",
+   "Set the availability window in that person's OWN local time, and tick the days.",
+   "Use <b>Never schedule</b> for standing exclusions such as a Friday prayer window or an exam week.",
+   "The live clocks at the bottom refresh every 30 seconds and use your browser's own time-zone database, so daylight saving is always right without anyone maintaining a table."
+  ],
+  "connects": "Used by Availability, Sessions and Cycle bookings when a class time is proposed, and by Lesson reminders when a reminder is scheduled."
+ },
+ "free-classes.html": {
+  "purpose": "Runs the studio's free outreach programmes — the JAMB bootcamp on YouTube, the WAEC clinic on Zoom, the IELTS drop-in on Google Meet — end to end. Create a cohort, attach the meeting link, the replay link and the WhatsApp or Telegram group, generate a shareable registration link, and then track attendance, quiz results and who is worth converting into a paying learner.",
+  "audience": "Tutors and administrators. Registrants themselves never see this page; they see the public sign-up page.",
+  "why": "Free students are not paying clients and must never touch invoices, payroll or the fee ledger — but they still have to be registered, tracked, assessed and evaluated, and the strongest of them are the studio's best source of paying enrolments.",
+  "how": [
+   "Create the cohort: name it, choose the exam board and the platform, and paste the meeting, replay and group-chat links. Nothing is uploaded — links only.",
+   "Generate a registration link. Give each channel its own link (Instagram, WhatsApp status, a school) so you can see which one actually works.",
+   "Share the link. Anyone can register without an account; they receive a registration number immediately.",
+   "Work the roll: approve registrations, record attendance and quiz results, and note who is engaging.",
+   "Press <b>Convert</b> on a strong registrant to create a real learner record, keeping the whole free-class history attached."
+  ],
+  "connects": "Cohorts can be attached to a CBT paper so free students sit the same quizzes. Converted registrants become Learners and can be given an Engagement."
+ },
+ "free-register.html": {
+  "purpose": "The public sign-up page for a free class. Opened with a registration link, it shows what the class is, when it runs and on which platform, then collects the few details needed to register and issues a registration number on the spot, together with the joining links.",
+  "audience": "Anyone with the link. No account and no sign-in are required.",
+  "why": "A free class advertised on WhatsApp converts badly if the first step is \"create an account\". This page asks for a name and a way to reach the student, and nothing else that is not needed.",
+  "how": [
+   "Open the link you were given.",
+   "Read what the class covers, when it runs and where it happens.",
+   "Fill in your details. A parent or guardian must consent when the class is for minors.",
+   "Press <b>Register</b> and save the registration number you are shown.",
+   "Use the joining links on the confirmation to reach the class and the group chat."
+  ],
+  "connects": "Writes into the cohort roll on Free class cohorts. A registrant who is later converted becomes a Learner."
+ },
+ "admin-data.html": {
+  "purpose": "The studio's data-custody desk. Take a sealed, checksummed backup of every table to your own device; restore one; sync a copy to your own Google Drive folder; export a single table as CSV; export an anonymised dataset for research; answer a data-subject request; and see how much of the free-tier database and storage quota is actually in use.",
+  "audience": "Owner and administrators only. This page can read every table in the studio.",
+  "why": "The studio's data belongs to the studio, not to the platform it happens to run on. A backup you have never restored is not a backup, so the restore path is on the same page as the export, and every archive carries a SHA-256 checksum you can verify.",
+  "how": [
+   "Press <b>Download full backup</b> — a single JSON archive with a checksum lands on your device.",
+   "Connect your own Google Drive if you want an off-device copy. Only files this app creates are ever visible to it.",
+   "Use the per-table CSV export when you want one table in a spreadsheet.",
+   "Use <b>Restore</b> to load an archive back. You are shown exactly what will change before anything is written.",
+   "Watch the quota panel: the free tier gives 500 MB of database and 1 GB of storage, and this page tells you how close you are."
+  ],
+  "connects": "Reads every table the studio has. Related to Storage manager, Platform health and the Security centre."
+ },
+ "settings.html": {
+  "purpose": "Everything about how this studio behaves, in one place: identity and branding, the studio clock and currency, cancellation and idle-lock rules, sibling discounts, booking-cycle defaults, quiz and grading defaults, notification channels, the public-page content, integrations and the data-retention position.",
+  "audience": "Owner and administrators only. Changes here affect every user of the studio.",
+  "why": "Configuration decides who sees what, what a parent is charged and what the certificates say. It is also the page a new studio fills in first, so it has to be complete — a setting that is missing here gets hard-coded somewhere worse.",
+  "how": [
+   "Work down the cards in order; each one saves on its own, so you can stop and come back.",
+   "Set the studio identity first — the name, motto and logo appear on every printed document and certificate.",
+   "Set the timezone and currency before taking any bookings or issuing any invoice.",
+   "Review the sibling-discount bands: the highest band reached applies to the whole family, and the bands are not added together.",
+   "Use <b>Test</b> next to an integration rather than discovering it is misconfigured when a parent does."
+  ],
+  "connects": "Read by nearly every page in the studio. The studio name, logo and signature flow into Certificates, Invoices, Progress reports and ID cards."
+ },
+ "hmg-products.html": {
+  "purpose": "The catalogue of HMG Concepts software — School Connect, GOSA Portal, HMG Academy CBT Pro, Tutoring Connect itself and the rest — with what each one does, who it is for, a live demo link, the source repository and how to obtain a licence.",
+  "audience": "Anyone. The page is public and indexed, because it is also how a visitor discovers the rest of the ecosystem.",
+  "why": "A studio running Tutoring Connect is frequently asked by a school, a church or an association whether something similar exists for them. This page answers that without a phone call, and links the sites together for search engines.",
+  "how": [
+   "Browse the catalogue, or filter by the kind of organisation you are.",
+   "Open a live demo to see a product working before asking about it.",
+   "Follow the enquiry link on any product to start a conversation about a licence.",
+   "Use the comparison table when two products look similar — it says plainly which one fits which situation."
+  ],
+  "connects": "Links to HMG Ecosystem, to each product's live site and repository, and to the studio's own Contact page."
+ },
+ "certificates.html": {
+  "purpose": "A certificate studio, not a name-and-a-code. Six designed layouts — premium gold, classic, modern, elegant, minimal and diploma — with your own colours, fonts, border, logo, seal text and a signature pulled from a link. Every certificate carries a unique verification code, the design is stored with the award so a reprint in two years looks identical, and awards can be issued one at a time or in a batch from a quiz result.",
+  "audience": "Tutors and administrators issue certificates. A learner and their parent can view and print their own.",
+  "why": "A certificate is the most-shared artefact a studio produces — it goes on a wall, into a WhatsApp status and into a school file. The old one-line design undersold the work behind it. A verification code also means the certificate can be checked rather than merely believed.",
+  "how": [
+   "Choose a saved design, or build one and save it as the studio's house style.",
+   "Pick the recipient from the learner list, or type a name for someone outside the roll.",
+   "Choose the kind of award and edit the body text — the live preview updates as you type.",
+   "Paste a signature image link if you have one. Nothing is uploaded; it is a link, which is what keeps the studio inside the free tier.",
+   "Press <b>Issue &amp; print</b>. The verification code is generated, the award is recorded, and the design is stored with it.",
+   "Use <b>Batch from a quiz</b> to issue to everyone who passed a paper in one pass."
+  ],
+  "connects": "Can issue from a CBT result or a Free class cohort. Issued certificates appear on Learner portfolio and Transcripts, and can be checked by code."
+ },
+ "practice.html": {
+  "purpose": "Where every quiz is built and managed. Three kinds: Self-quiz for unmarked practice, Review quiz for finding the gaps after a class, and Graded quiz which pushes straight to the scoresheet. Questions are pasted or imported from CSV — seventeen question families are supported — and each paper carries its own anti-cheat settings. Every saved paper has full lifecycle controls beside it: preview, questions, edit, results, share, close or re-open, archive, duplicate and delete.",
+  "audience": "Tutors and administrators build papers. A tutor manages only their own. Learners sit papers on the Take a quiz page.",
+  "why": "A paper you cannot close keeps collecting sittings after the deadline, and the only previous way to stop it was to delete the paper and lose the results with it. Closing, re-opening and archiving are separate acts for that reason, and closure is enforced by the database rather than merely by the interface.",
+  "how": [
+   "Fill the header — title, code, kind, access mode and duration.",
+   "Import a CSV or paste one. The file is parsed in your browser and never uploaded.",
+   "Set the anti-cheat options. Tools a candidate legitimately needs, such as the calculator, are exempt from the violation counter.",
+   "Press <b>Parse CSV preview</b> before saving, to see exactly what will be stored.",
+   "Manage a saved paper from the buttons beside it: <b>Close</b> stops new sittings without touching the results, <b>Open</b> restarts it, <b>Share</b> produces a link, <b>Results</b> opens the marks, and <b>Archive</b> retires it."
+  ],
+  "connects": "Papers are sat on Take a quiz, marked into CBT results and, when graded, into the Scoresheet. Prompts for building question banks are on Question bank prompts."
+ },
+ "activity-log.html": {
+  "purpose": "Every create, edit, delete and sign-in in the studio, in one immutable list with who did it, when, from where, and what changed. Rows cannot be edited or deleted, including by the owner — an audit trail somebody can tidy up is not an audit trail. Filter by person, by table, by date range, or search the change itself."
+ },
+ "birthdays.html": {
+  "purpose": "Upcoming birthdays for learners, parents and tutors, ordered by how soon they fall rather than by date of birth, so today is always at the top. Shows the age being reached, the engagement the learner belongs to, and a one-tap WhatsApp message. Nothing here is decoration: a remembered birthday is one of the cheapest things a studio can do to keep a family."
+ },
+ "broadcasts.html": {
+  "purpose": "Send a score, a report, a class change or a term announcement to many families at once through free channels — WhatsApp click-to-chat, email and browser push. Choose the audience by engagement, group, year or attendance, preview exactly what each family will receive with their own child's figures merged in, and see who has been sent what so nobody is messaged twice."
+ },
+ "complaints.html": {
+  "purpose": "The formal route for a concern, from the moment it is raised to the moment it is closed. A parent or learner submits it, the studio routes it to an owner, and every step is timestamped. Evidence is attached as a Drive or web link rather than an upload. The audit trail matters more than the form: it is what you produce when a complaint escalates."
+ },
+ "compliance.html": {
+  "purpose": "The register of the checks a tutoring studio has to be able to produce on demand — background and DBS checks, insurance, safeguarding training, data-protection tasks and policy reviews — each with an owner, a due date and an expiry. Overdue items are shown in red at the top, because the whole value of this page is that nothing quietly lapses."
+ },
+ "directory.html": {
+  "purpose": "A searchable directory of everyone connected to the studio — learners, parents, tutors and staff — filtered by what your role is allowed to see. A tutor finds the parent of a child they teach; a parent finds the studio's contacts; nobody sees another family's details. Search matches names, subjects, groups and roles at once."
+ },
+ "feature-guide.html": {
+  "purpose": "The complete catalogue of what this studio can do: every module, what it is for, who can reach it and which pages it connects to, generated from the platform itself so it can never drift out of date. Search it, filter it by role, and open any page straight from its entry. This is the fastest way for a new tutor to learn the studio, and the fastest way for an owner to discover a feature they are paying for and not using."
+ },
+ "finance.html": {
+  "purpose": "The studio's income and expenditure in one ledger, with a simple profit-and-loss view by month, category and engagement. Fee income arrives automatically from invoices and payments; expenses are entered here. Shows what the studio actually earned after tutor cost, which is the number a solo tutor almost never has and most needs."
+ },
+ "flyer.html": {
+  "purpose": "A printable, brand-matched one-page flyer for the studio, built from the details in Settings so it can never disagree with the website. Subjects, exam boards, timetable, price position and contact details, with a QR code to the application page. Print it, or export it as an image for WhatsApp status. Free lead generation that costs one click."
+ },
+ "gamification.html": {
+  "purpose": "Streaks, points and badges for homework completion, attendance and topic mastery — with a completely transparent point log, so a learner can always see exactly why they have the score they have. Nothing is random and nothing is hidden, because a reward system a child does not understand stops motivating them within a fortnight."
+ },
+ "helpdesk.html": {
+  "purpose": "Tickets for the things that are not teaching: a portal login that will not work, a class time that clashes, a payment that has not shown up. Anyone signed in can raise one; staff triage, assign and resolve them, and the requester can see the status without having to ask. Keeps operational noise out of the complaints process, which should be reserved for real concerns."
+ },
+ "hmg-ecosystem.html": {
+  "purpose": "A map of the wider HMG Concepts family — HMG Technologies, HMG Academy, HMG Media, HMG Gospel and the founder's own site. Present on every generated studio, and deliberately so: the cross-links help search engines understand that these sites belong together, which lifts all of them, and it gives a visitor a route to a product that fits them better than this one."
+ },
+ "idcards.html": {
+  "purpose": "Printable, brand-matched identity cards for learners and tutors, with a photograph pulled from a link, the studio crest, an expiry date and a QR code that opens that person's record for in-person check-in. Print one, or a whole sheet at a time. Photographs are linked, never uploaded, which is what keeps the studio inside the free storage quota."
+ },
+ "lms.html": {
+  "purpose": "A small learning-management space scoped to one engagement: courses, lessons in order, linked material, and a completion tick per learner. Deliberately small — it is for structuring a course of tutoring, not for replacing a school's platform. Content is linked from Drive, YouTube or the open web rather than uploaded."
+ },
+ "parent-meetings.html": {
+  "purpose": "Booking, running and recording the parent conference. A parent picks a slot from the tutor's real availability; the meeting opens with the learner's latest 360 view and progress report already attached, so nobody spends the first ten minutes looking for numbers; and what was agreed is written down at the end and visible to both sides afterwards."
+ },
+ "payroll.html": {
+  "purpose": "Tutor pay worked out from hours actually taught rather than hours planned — attendance times rate, plus bonuses, minus deductions — with a payslip you can print and a running total per period. A solo tutor can ignore this page entirely. A studio with associate tutors cannot: this is where the margin either exists or does not."
+ },
+ "platform-health.html": {
+  "purpose": "One screen that answers \"is the studio still working?\": the keep-alive heartbeat that stops Supabase pausing a free project after seven idle days, database size against the 500 MB limit, when the last backup was taken, the licence position, and the idle-lock setting. Anything amber or red here is something that will become an outage if it is ignored."
+ },
+ "polls.html": {
+  "purpose": "Ask families and learners a question and get a countable answer — a class time, a topic to revise next, a date for a workshop. Single or multiple choice, open or anonymous, with a closing time and a live result chart. Anonymous polls genuinely are: the vote and the voter are stored separately so even the owner cannot reconstruct who chose what."
+ },
+ "products.html": {
+  "purpose": "Past papers, workbooks, revision kits and anything else the studio sells alongside the teaching. Price, stock position, and a link to the material where it is digital. Sales flow into the same invoice and payment pipeline as tuition fees, so the finance page shows one honest total rather than two partial ones."
+ },
+ "referrals.html": {
+  "purpose": "Who recommended whom, and what they were given for it. Records the referrer, the family who arrived, whether they converted, and the credit or discount granted — which then applies automatically on the invoice. For most tutoring studios word of mouth is the largest single source of new business and the least measured; this page measures it."
+ },
+ "rubrics.html": {
+  "purpose": "The criteria and the scale used to mark essays, projects and spoken work, written down before the marking starts. A rubric attached to an assessment turns \"this is a good essay\" into a defensible mark a parent can read, and makes two tutors mark the same piece of work the same way."
+ },
+ "status-manager.html": {
+  "purpose": "Change what someone is and what they can do: their role, whether their account is active, suspended or pending, and which learners a parent is linked to. Every change writes an audit row naming who made it and what it was before, because a quiet role change is a privacy incident waiting to be discovered."
+ },
+ "storage.html": {
+  "purpose": "Keeps the studio inside the free tier deliberately rather than by luck. Shows what is actually consuming the 500 MB database allowance, table by table, and lets you compress, archive or purge the things that grow without limit — activity logs, login audits, keep-alive rows and old notifications — with a dated export taken first so nothing is lost, only moved."
+ },
+ "exam-register.html": {
+  "purpose": "Registers a candidate for an examination and issues a sequential examination number the moment it is accepted. Works for a candidate who has no portal account — the studio also registers external candidates — and produces four printable documents: the acknowledgement, the examination slip with the number and seat, the candidate register and the invigilator's attendance sheet.",
+  "audience": "Two audiences on one page. A candidate or a parent opens it from a registration link and sees only the form. Staff signed in see the full console below it: the roll, the lifecycle controls and the printable documents.",
+  "why": "An examination number generated in the browser races: two candidates registering at the same second get the same number. It comes from a PostgreSQL sequence instead, so it cannot. The printable documents matter because an examination hall runs on paper whatever the software does.",
+  "how": [
+   "Candidates: open the link, complete the form and keep the examination number you are shown.",
+   "Staff: work the roll below — accept, decline, or advance a registration through its lifecycle.",
+   "Print the register and the attendance sheet the day before the sitting.",
+   "Nothing is uploaded anywhere on this page: supporting documents are links."
+  ]
  }
 }

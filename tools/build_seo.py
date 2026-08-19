@@ -43,6 +43,11 @@ PUBLIC_PAGES = [
     'exam-register.html', 'public-book.html', 'feature-guide.html',
     'hmg-ecosystem.html', 'hmg-products.html', 'flyer.html',
     'install.html', 'developer.html', 'site-index.html',
+    # V25 — the free-class sign-up page is deliberately public and indexable.
+    # It is the studio's outreach front door: a student who searches for
+    # "free JAMB physics class" should be able to land on it, and the page
+    # itself refuses to show anything without a valid registration token.
+    'free-register.html',
 ]
 
 # Generator-only pages. These must never appear in a CLIENT sitemap.

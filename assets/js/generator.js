@@ -46,8 +46,19 @@ console.log('[Tutoring Connect] config —', window.PRACTICE.name);
     'login.html','dashboard.html','about.html','contact.html','apply.html','install.html','offline.html',
     'forgot-password.html','change-password.html','profile.html','feature-guide.html','developer.html',
     'hmg-ecosystem.html','hmg-products.html','notifications.html',
+    /* V25 — free / outreach classes. free-register.html is PUBLIC and is
+       what a student opens from a WhatsApp registration link. */
+    'free-classes.html','free-register.html',
     'assets/css/style.css',
     'assets/js/app.js','assets/js/rbac.js','assets/js/legibility.js','assets/js/crud.js','assets/js/insights.js','assets/js/super.js',
+    /* V25 — the navigation model and its renderer. If either of these is
+       missing from a generated ZIP the client site ships with an EMPTY
+       navigation pane, because the pages no longer carry hard-coded links.
+       nav-model.json is included too: tools and tests read the JSON copy
+       rather than regexing the JavaScript. */
+    'assets/js/nav-model.js','assets/js/nav-model.json','assets/js/nav.js',
+    /* V25 — entry desks, certificate studio, quiz lifecycle, free classes. */
+    'assets/js/desk-kit.js','assets/js/cert-studio.js','assets/js/cbt-manage.js','assets/js/free-classes.js',
     'assets/js/cbt.js','assets/js/cbt-types.js','assets/js/proctor.js','assets/js/drive-sync.js','assets/js/data-portability.js',
     'assets/js/bookings-engine.js','assets/js/catalog.js','assets/js/license.js',
     'assets/js/media.js','assets/js/brand.js','assets/js/notifications.js','assets/js/pwa-install.js',
@@ -61,6 +72,9 @@ console.log('[Tutoring Connect] config —', window.PRACTICE.name);
     'database/v4-enterprise-parity.sql','database/v5-ops-parity.sql','database/v6-cbt-modes.sql',
     'database/v7-family-access-fix.sql','database/v9-keepalive-and-drive.sql','database/v12-quota-guard.sql','database/v15-family-polls-billing.sql',
     'database/v16-exam-registration.sql','database/v17-licensing-and-family-billing.sql',
+    'database/v18-security-hardening.sql','database/v19-revenue-and-security.sql',
+    'database/v20-cbt-2fa-polls.sql','database/v22-cbt-results-audit.sql',
+    'database/v24-tutor-scoping.sql','database/v25-desks-lifecycle-free-classes.sql',
     'DEPLOYMENT-GUIDE.md','README.md','FEATURE-CATALOG.md','SUPABASE_FREE_TIER_PROTECTION.md',
     'docs/GOOGLE-DRIVE-SYNC-GUIDE.md','docs/ONBOARDING-GUIDE.md','docs/INSIGHTS-METHODOLOGY.md',
     'manifest.json','sw.js','robots.txt','sitemap.xml','_headers','.nojekyll',
@@ -70,7 +84,7 @@ console.log('[Tutoring Connect] config —', window.PRACTICE.name);
     'supabase/functions/ping/index.ts'
   ],
   ALL_PAGES: [
-    'about.html','accommodations.html','activity-log.html','admin-data.html','analytics.html',
+    'about.html','free-classes.html','free-register.html','accommodations.html','activity-log.html','admin-data.html','analytics.html',
     'announcements.html','application-links.html','apply.html','approvals.html',
     'assignments.html','at-risk.html','attendance.html','availability.html','birthdays.html',
     'bookings.html','broadcasts.html','calendar.html','cancellations.html','cbt-exam.html',

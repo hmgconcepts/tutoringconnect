@@ -33,9 +33,32 @@ def scrape():
         btns = sorted(set(b.strip() for b in re.findall(r'>\s*([A-Z][A-Za-z /&+-]{2,28})\s*</button>', s)))
         tables = len(re.findall(r'<table', s))
         forms = len(re.findall(r'<form', s))
+        # ------------------------------------------------------------------
+        # ITEM 6 — "remove irrelevant details on each page description".
+        #
+        # The scraper picked up every <button> on the page, including the ones
+        # that belong to the SHELL rather than to the page. The result was that
+        # 116 of 128 page descriptions ended with the sentence
+        #
+        #     "The main actions available here are: Sign out, Theme."
+        #
+        # which is true of every page in the studio, tells the reader nothing,
+        # and — worse — was the ONLY "actions" sentence on the stub pages, so
+        # the description of the At-risk board announced that its main actions
+        # were signing out and changing the theme.
+        #
+        # Shell controls are now excluded. If nothing page-specific remains,
+        # the sentence is dropped entirely rather than padded.
+        # ------------------------------------------------------------------
+        CHROME = {
+            'close', 'cancel', 'ok', 'send', 'x', 'sign out', 'signout',
+            'theme', 'toggle theme', 'toggle dark mode', 'dark mode', 'menu',
+            'help', 'page help', 'about this page', 'back', 'next', 'previous',
+            'install', 'install app', 'notifications', 'search', 'clear',
+            'refresh', 'reload', 'print', 'toggle high contrast', 'skip to content'
+        }
         out.append(dict(file=f, page=f[:-5], title=title, h1=h1, tabs=tabs[:8],
-                        actions=[b for b in btns if b.lower() not in
-                                 ('close', 'cancel', 'ok', 'send', 'x')][:8],
+                        actions=[b for b in btns if b.strip().lower() not in CHROME][:8],
                         tables=tables, forms=forms))
     return out
 
@@ -255,6 +278,79 @@ FAQS = {
                           ('What if it already paused?', 'Open the Supabase dashboard and press Restore. Data is safe — but a project left paused is eventually deleted.')],
 }
 
+# ---------------------------------------------------------------------------
+# ITEM 6 — per-page role views, derived rather than boilerplate.
+#
+# roleViews used to be looked up by GROUP, which produced statements that were
+# simply false. The "About" page — which is public, linked from every footer
+# and deliberately indexed by search engines — carried:
+#
+#     tutor: "No access."   parent: "No access."   learner: "No access."
+#
+# A page description that contradicts what the reader can plainly see is worse
+# than no description. Role views are now computed from the same access model
+# the application enforces.
+# ---------------------------------------------------------------------------
+SHELL_PAGES = {'dashboard', 'profile', 'change-password', 'notifications',
+               'inbox', 'messages', 'offline', 'install', 'about',
+               'feature-guide', 'site-index', 'contact', 'helpdesk',
+               'hmg-ecosystem', 'hmg-products'}
+
+def role_views(pg, access):
+    """What each role actually gets on this page, in one honest sentence each."""
+    if access == 'public':
+        return {'owner':   'Full access, and can edit the content behind it in Settings.',
+                'tutor':   'Full access — it is a public page.',
+                'parent':  'Full access — it is a public page.',
+                'learner': 'Full access — it is a public page.'}
+    if access == 'code-gated':
+        return {'owner':   'Can open any paper and see every candidate.',
+                'tutor':   'Can open the papers assigned to them.',
+                'parent':  'No access — a parent does not sit the paper.',
+                'learner': 'Opens their own paper with the quiz code and their student ID.'}
+    if pg in SHELL_PAGES:
+        return {'owner': 'Full access.', 'tutor': 'Full access.',
+                'parent': 'Their own view of it.', 'learner': 'Their own view of it.'}
+    if access == 'owner':
+        return {'owner':   'Full access.',
+                'tutor':   'No access — this page controls money, audit or configuration.',
+                'parent':  'No access.', 'learner': 'No access.'}
+    if access == 'family':
+        return {'owner':   'Full access across every learner.',
+                'tutor':   'Full access for the learners assigned to them.',
+                'parent':  'Read-only, and only for their own children.',
+                'learner': 'Read-only, and only their own record.'}
+    return {'owner':   'Full access.',
+            'tutor':   'Full access for the learners and groups assigned to them, and nothing else.',
+            'parent':  'No access.', 'learner': 'No access.'}
+
+
+# ---------------------------------------------------------------------------
+# ITEM 6 — related links that are actually related.
+#
+# `related` was filled with the first six alphabetical siblings from the same
+# catalogue group. That is how the About page came to recommend "activity-log,
+# admin-data, approvals" to a prospective parent. Related pages now come from
+# the navigation model, which groups pages by what a person is trying to do.
+# ---------------------------------------------------------------------------
+def nav_neighbours():
+    """page -> (section title, [sibling pages in menu order])"""
+    path = os.path.join(ROOT, 'assets', 'js', 'nav-model.js')
+    if not os.path.exists(path):
+        return {}
+    src = open(path, encoding='utf-8').read()
+    m = re.search(r'w\.TC_NAV_MODEL = (\[.*?\]);', src, re.S)
+    if not m:
+        return {}
+    model = json.loads(m.group(1))
+    out = {}
+    for sect in model:
+        pages = [i['href'][:-5] for i in sect['items']]
+        for p in pages:
+            out[p] = (sect['title'], [q for q in pages if q != p])
+    return out
+
+
 def archetype(pg, grp, access):
     if access == 'public': return 'public'
     if pg in ('settings', 'platform-health', 'license', 'status-manager'): return 'settings'
@@ -268,6 +364,7 @@ CUSTOM = json.load(open('tools/page_guide_custom.json', encoding='utf-8')) \
 
 def build():
     pages, mods = scrape(), modules()
+    neigh = nav_neighbours()
     by_group = collections.defaultdict(list)
     for p in pages:
         m = mods.get(p['file'])
@@ -295,7 +392,7 @@ def build():
             detail.append("This page is organised into %d sections: %s." %
                           (len(p['tabs']), ', '.join('<b>%s</b>' % t for t in p['tabs'])))
         if p['actions']:
-            detail.append("The main actions available here are: %s." %
+            detail.append("What you can do here: %s." %
                           ', '.join('<b>%s</b>' % a for a in p['actions']))
         if p['forms'] and not p['tabs']:
             detail.append("It is form-driven — you fill a form and save; the record appears in the list immediately.")
@@ -304,14 +401,20 @@ def build():
         # builder/wizard pages exist only in the generator; a CLIENT build must
         # never link to them or the ZIP ships a broken link.
         GENERATOR_ONLY = {'builder'}
-        siblings = [s for s in by_group[grp] if s != pg and s not in GENERATOR_ONLY][:6]
+        # Menu neighbours first (semantically related), catalogue group second.
+        sect_title, sect_sibs = neigh.get(pg, (None, []))
+        siblings = [x for x in sect_sibs if x not in GENERATOR_ONLY][:6]
+        if not siblings:
+            siblings = [x for x in by_group[grp] if x != pg and x not in GENERATOR_ONLY][:6]
+        if c.get('related'):
+            siblings = c['related'][:6]
 
         arch = archetype(pg, grp, access)
         guide[pg] = dict(
             page=pg, file=f, title=title, group=grp, access=access,
             archetype=arch,
             sections=[{'name': n, 'what': wtxt} for n, wtxt in SECTIONS[arch]],
-            roleViews=ROLE_VIEWS.get(grp, ROLE_VIEWS['Platform']),
+            roleViews=c.get('roleViews') or role_views(pg, access),
             tasks=TASKS.get(f, []),
             faqs=[{'q': q, 'a': a} for q, a in FAQS.get(f, [])],
             purpose=base,
@@ -320,9 +423,11 @@ def build():
             why=c.get('why') or WHY.get(grp, WHY['Platform']),
             how=c.get('how') or HOW.get(grp, HOW['Platform']),
             connects=c.get('connects') or (
-                "Sits in the <b>%s</b> group%s. Data is scoped to the engagement it belongs to, "
-                "so one learner's records never appear inside another's." %
-                (grp, (", alongside " + ', '.join(siblings)) if siblings else '')),
+                "Found under <b>%s</b> in the menu%s. Every record is scoped to the engagement "
+                "it belongs to, so one learner's data never appears inside another's, and a "
+                "tutor sees only the learners assigned to them." %
+                (sect_title or grp,
+                 (", next to " + ', '.join(siblings[:4])) if siblings else '')),
             related=siblings,
             actions=p['actions'], tabs=p['tabs'])
     return guide

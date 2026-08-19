@@ -64,6 +64,15 @@ echo "== 3b. regenerate per-site SEO (sitemap + robots + noindex) =="
 python3 "$TC/tools/build_seo.py" "$TC"
 python3 "$TC/tools/build_seo.py" "$AC"
 
+echo "== 3c. verify BOTH repos before packaging =="
+# Added V25. The suite used to be zipped without anything having been run
+# against the CLIENT copy, so a mirror that dropped a file would have shipped.
+for REPO in "$TC" "$AC"; do
+  echo "   -- $(basename "$REPO")"
+  node "$TC/tools/test_nav.js"        "$REPO" | tail -1
+  node "$TC/tools/test_v25_render.js" "$REPO" | tail -1
+done
+
 echo "== 4. rebuild the deliverable suite =="
 rm -rf "$SUITE/generator-tutoringconnect" "$SUITE/generated-site-adewaleclassroom" \
        "$SUITE/database" "$SUITE/docs"

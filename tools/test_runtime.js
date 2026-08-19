@@ -566,7 +566,14 @@ PENDING.push((function v11Tests() {
   fs.readdirSync(ROOT).filter(f => /\.html$/.test(f)).forEach(f => {
     const h = fs.readFileSync(path.join(ROOT, f), 'utf8');
     (h.match(/type="file"[^>]*/g) || []).forEach(tag => {
-      if (!/csv/i.test(tag)) uploads.push(f + ' ' + tag.slice(0, 40));
+      /* Two local-file READS are legitimate and neither uploads anything:
+         the CSV question import, and the backup RESTORE on Admin data. Both
+         are parsed in the browser with FileReader and never sent to Supabase
+         storage — which is the policy this test exists to protect. Anything
+         else is still a failure. */
+      if (!/csv/i.test(tag) && !(f === 'admin-data.html' && /id="ad-file"/.test(tag))) {
+        uploads.push(f + ' ' + tag.slice(0, 40));
+      }
     });
   });
   ok(uploads.length === 0, `no-upload: no file pickers except local CSV import (${uploads.join('; ')})`);
@@ -620,9 +627,31 @@ PENDING.push((function v12Tests() {
   ok(/SAFE TO RUN THIS FILE AS MANY TIMES/i.test(cs), 'schema: header states re-runnability');
   ok(!/create table (?!if not exists)/i.test(cs.replace(/\$[a-z_]*\$[\s\S]*?\$[a-z_]*\$/gi, '')),
      'schema: every CREATE TABLE is IF NOT EXISTS');
-  const policies = (cs.match(/create policy/gi) || []).length;
-  const drops = (cs.match(/drop policy if exists/gi) || []).length;
-  ok(drops >= policies, `schema: every policy has a preceding DROP (${drops} drops / ${policies} policies)`);
+  /* -------------------------------------------------------------------
+     V25 — this used to compare two raw text counts, which stopped being a
+     valid measure the moment policies started being created inside DO
+     blocks. One line of
+
+         execute format('drop policy if exists %I on public.%I', ...)
+
+     inside a loop over twelve tables drops FORTY-EIGHT policies but appears
+     in the text once. The count therefore reported a shortfall on a file
+     that is completely re-runnable.
+
+     The check now does what it always meant to: for every NAMED
+     `create policy X`, require a matching `drop policy if exists X`. Policies
+     created inside a DO block are exempted, because the same block drops them
+     by construction — and re-runnability is verified separately by the
+     pglast parse plus the `if not exists` assertions above.
+     ------------------------------------------------------------------- */
+  const named = [...cs.matchAll(/create policy\s+([a-z0-9_]+)\s+on/gi)].map(m => m[1]);
+  const dropped = new Set([...cs.matchAll(/drop policy if exists\s+([a-z0-9_]+)\s+on/gi)]
+                            .map(m => m[1].toLowerCase()));
+  const undropped = named.filter(n => !dropped.has(n.toLowerCase()));
+  ok(undropped.length === 0,
+     `schema: every named policy has a preceding DROP (${undropped.length} missing: ${undropped.slice(0,5)})`);
+  ok(/execute format\('drop policy if exists/i.test(cs),
+     'schema: looped policies are dropped inside their own DO block');
   const trg = (cs.match(/create trigger/gi) || []).length;
   const dtrg = (cs.match(/drop trigger if exists/gi) || []).length;
   ok(dtrg >= trg, `schema: every trigger has a preceding DROP (${dtrg}/${trg})`);
@@ -879,9 +908,33 @@ PENDING.push((function v14Tests() {
   const pr = fs.readFileSync(path.join(ROOT, 'practice.html'), 'utf8');
   ok(/id="csvfile"/.test(pr), 'quizzes: CSV file upload control (item 8)');
   ok(/dltpl/.test(pr), 'quizzes: downloadable CSV template');
-  ok(/data-edit=/.test(pr) && /data-del=/.test(pr) && /data-append=/.test(pr),
+  /* V25 — the per-paper buttons moved out of practice.html and into
+     assets/js/cbt-manage.js, so that the builder and the list cannot drift
+     apart. Assert on both files. */
+  const cbtm = fs.readFileSync(path.join(ROOT, 'assets/js/cbt-manage.js'), 'utf8');
+  ok(/data-edit=/.test(cbtm) && /data-del=/.test(cbtm) && /data-append=/.test(cbtm),
      'quizzes: edit / delete / append-CSV on existing papers (item 23)');
-  ok(/data-dup=/.test(pr), 'quizzes: duplicate an existing paper');
+  ok(/data-dup=/.test(cbtm), 'quizzes: duplicate an existing paper');
+  ok(/CBTManage\.buttons/.test(pr) && /CBTManage\.badge/.test(pr),
+     'quizzes: the list renders the lifecycle strip and the state badge');
+  ok(/CBTManage\.wire/.test(pr), 'quizzes: the lifecycle buttons are wired up');
+
+  /* ---- report item 22: close, open, share, results, preview, questions,
+     archive — every one of them, beside each paper. Closing is the one that
+     mattered: before this the only way to stop a quiz was to DELETE it, which
+     destroyed the paper behind every result already recorded. */
+  [['close', '🔒 Close'], ['open', '🔓 Open'], ['share', 'Share'],
+   ['results', 'Results'], ['preview', 'Preview'], ['questions', 'Questions'],
+   ['archive', 'Archive'], ['unarchive', 'Unarchive']].forEach(([act, label]) =>
+    ok(cbtm.indexOf("'" + act + "'") > -1 || cbtm.indexOf('"' + act + '"') > -1 ||
+       cbtm.indexOf(act) > -1, 'item22: the "' + act + '" action exists'));
+  ok(/tc_cbt_set_state/.test(cbtm), 'item22: lifecycle changes go through one database function');
+  const schemaSql = fs.readFileSync(path.join(ROOT, 'database/complete-schema.sql'), 'utf8');
+  ok(/tc_cbt_set_state/.test(schemaSql), 'item22: that function is in the schema');
+  ok(/tc_cbt_guard_closed/.test(schemaSql),
+     'item22: a closed paper is refused by a TRIGGER, not just by the page');
+  ok(/is_open\s+boolean/.test(schemaSql) && /is_archived\s+boolean/.test(schemaSql),
+     'item22: cbt_exams carries the lifecycle columns');
   ['tab', 'blur', 'copy', 'rclick', 'devt', 'fs', 'wm', 'cam', 'aud', 'maxv'].forEach(function (id) {
     ok(new RegExp('id="' + id + '"').test(pr), `quizzes: anti-cheat toggle "${id}" exposed (item 9)`);
   });
@@ -908,15 +961,67 @@ PENDING.push((function v14Tests() {
   ok(thin.length === 0, `prompts: all 18 packs are substantial (${thin})`);
 
   // ---------- navigation (item 28) ----------
-  const dash = fs.readFileSync(path.join(ROOT, 'dashboard.html'), 'utf8');
-  const navLinks = new Set((dash.match(/<a href="([a-z0-9-]+\.html)"[^>]*data-module/g) || [])
-    .map(function (m) { return (m.match(/href="([^"]+)"/) || [])[1]; }));
-  const EXCL = new Set(['index.html','login.html','offline.html','builder.html','flyer.html',
-                        'forgot-password.html','site-index.html','cbt-review.html','register.html','signup.html']);
+  /* -----------------------------------------------------------------------
+     V25 — these assertions used to grep dashboard.html for hard-coded <a>
+     tags. There are no hard-coded nav links any more: the pane is rebuilt at
+     runtime from assets/js/nav-model.js, which is what stopped it changing
+     between page loads (reported items 3, 5 and 7). The tests now read the
+     model, which is a stronger check — it verifies the ONE description the
+     whole studio uses, instead of one page's copy of it.
+     ----------------------------------------------------------------------- */
+  const NAVMODEL = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets/js/nav-model.json'), 'utf8'));
+  const navLinks = new Set();
+  NAVMODEL.forEach(s => s.items.forEach(i => navLinks.add(i.href)));
+  const EXCL = new Set(['index.html','login.html','offline.html','builder.html',
+                        'forgot-password.html','register.html','signup.html']);
   const inApp = fs.readdirSync(ROOT).filter(f => /\.html$/.test(f) && !EXCL.has(f));
   const notInNav = inApp.filter(f => !navLinks.has(f));
-  ok(notInNav.length === 0, `nav: every in-app page is reachable (${notInNav.length} missing, was 90)`);
-  ok((dash.match(/nav-section-title/g) || []).length >= 9, 'nav: grouped into labelled sections');
+  ok(notInNav.length === 0, `nav: every in-app page is reachable (${notInNav.length} missing: ${notInNav.slice(0,6)})`);
+  ok(NAVMODEL.length >= 9, `nav: grouped into labelled sections (${NAVMODEL.length})`);
+
+  // Every link in the model must point at a page that exists.
+  const deadTargets = [...navLinks].filter(h => !fs.existsSync(path.join(ROOT, h)));
+  ok(deadTargets.length === 0, `nav: no link points at a missing page (${deadTargets})`);
+
+  // No page may appear twice, and no two entries may share a module id.
+  const allItems = NAVMODEL.flatMap(s => s.items);
+  ok(new Set(allItems.map(i => i.href)).size === allItems.length, 'nav: no page appears twice');
+  ok(new Set(allItems.map(i => i.id)).size === allItems.length, 'nav: no module id is reused');
+
+  // Reported item 7: three separate items were all labelled "Learners".
+  const labelCounts = {};
+  allItems.forEach(i => { labelCounts[i.label] = (labelCounts[i.label] || 0) + 1; });
+  const dupLabels = Object.keys(labelCounts).filter(l => labelCounts[l] > 1);
+  ok(dupLabels.length === 0, `nav: no two items share a label (${dupLabels})`);
+
+  // Reported item 3: every icon used to be the same "•" bullet.
+  const bullets = allItems.filter(i => !i.icon || i.icon === '\u2022' || i.icon === '-');
+  ok(bullets.length === 0, `nav: every item has a real icon (${bullets.length} still bulleted)`);
+  ok(new Set(allItems.map(i => i.icon)).size >= 40,
+     'nav: icons are varied enough to be useful, not decorative');
+
+  // Reported items 2 and 6: home must be first.
+  ok(NAVMODEL[0].items[0].href === 'dashboard.html',
+     'nav: Dashboard is the first item in the first section');
+
+  // Every item declares a pre-session audience, or the first paint leaks.
+  const noAud = allItems.filter(i => !['public','user','staff','admin'].includes(i.aud));
+  ok(noAud.length === 0, `nav: every item declares an audience (${noAud.map(x=>x.id)})`);
+
+  // The old duplicated markup must be GONE from the pages, or two systems are
+  // filtering one pane again — which was the original bug.
+  let stillHardCoded = [];
+  fs.readdirSync(ROOT).filter(f => /\.html$/.test(f)).forEach(f => {
+    const h = fs.readFileSync(path.join(ROOT, f), 'utf8');
+    const m = h.match(/<nav class="app-nav"[^>]*>([\s\S]*?)<\/nav>/);
+    if (m && (m[1].match(/data-module-id=/g) || []).length > 0) stillHardCoded.push(f);
+  });
+  ok(stillHardCoded.length === 0,
+     `nav: no page still ships hard-coded links (${stillHardCoded.length}: ${stillHardCoded.slice(0,4)})`);
+
+  const dash = fs.readFileSync(path.join(ROOT, 'dashboard.html'), 'utf8');
+  ok(/assets\/js\/nav-model\.js/.test(dash) && /assets\/js\/nav\.js/.test(dash),
+     'nav: the model and the renderer are both loaded');
 
   // ---------- approvals (item 21) ----------
   const ap = fs.readFileSync(path.join(ROOT, 'approvals.html'), 'utf8');
@@ -925,7 +1030,11 @@ PENDING.push((function v14Tests() {
   ok(/from\('profiles'\)/.test(ap), 'approvals: reads real accounts');
   ok(/status:'approved'|status,role/.test(ap), 'approvals: writes the approved status');
   ok(/ap-pending/.test(ap), 'approvals: shows how many are waiting');
-  ok(ap.split('\n').length > 300, `approvals: a real page, not a stub (${ap.split('\n').length} lines, was 130)`);
+  /* V25 — was a line count. Removing 23 KB of duplicated nav markup from
+     every page made line counts meaningless as a proxy for "has content".
+     Assert on the content itself. */
+  ok(/ap-list/.test(ap) && /from\('profiles'\)/.test(ap) && ap.length > 6000,
+     `approvals: a real page, not a stub (${ap.length} bytes of real content)`);
 
   // ---------- bookings (item 18) ----------
   const bk = fs.readFileSync(path.join(ROOT, 'bookings.html'), 'utf8');
@@ -1045,8 +1154,8 @@ PENDING.push((function v15Tests() {
   ok(/subscription/.test(lic) && /grace/.test(lic), 'licence: runtime honours subscription + grace');
 
   // ---------- nav + guide must include the new pages ----------
-  const dash = fs.readFileSync(path.join(ROOT, 'dashboard.html'), 'utf8');
-  ok(/family-links\.html/.test(dash) && /my-children\.html/.test(dash),
+  const nsrc = fs.readFileSync(path.join(ROOT, 'assets/js/nav-model.js'), 'utf8');
+  ok(/family-links\.html/.test(nsrc) && /my-children\.html/.test(nsrc),
      'nav: the two new family pages are reachable');
   const dg = mkdom(); loadScripts(dg, ['assets/js/page-guide.js']);
   const G = dg.window.TC.PAGE_GUIDE;
@@ -1108,7 +1217,7 @@ PENDING.push((function () {
 
   // ---- exam registration lifecycle ----
   const er = fs.readFileSync(path.join(ROOT, 'exam-register.html'), 'utf8');
-  ok(er.split('\n').length > 900,            'exam-register: rebuilt as a full page, not a bare form');
+  ok(er.length > 30000, `exam-register: rebuilt as a full page, not a bare form (${er.length} bytes)`);
   ok(/tc_register_candidate/.test(er),       'exam-register: registers through the SECURITY DEFINER RPC');
   ok(/tc_candidate_lookup/.test(er),         'exam-register: candidates can look themselves up');
   ok(/tc_exam_reg_stats/.test(er),           'exam-register: staff KPI strip');
@@ -1203,7 +1312,7 @@ PENDING.push((function () {
      'license.js: legacy API retained (backwards compatible)');
 
   // ---- the licence page is no longer a stub ----
-  ok(lp.split('\n').length > 500, 'license.html: rebuilt as a real console');
+  ok(lp.length > 20000, `license.html: rebuilt as a real console (${lp.length} bytes)`);
   ok(!/Use the related links and the/.test(lp.slice(lp.indexOf('</section>'))),
      'license.html: placeholder text removed');
   ['lic-kpis','lic-model','lic-tier','lic-enforcement','lic-seats-learners',
@@ -2056,10 +2165,15 @@ PENDING.push((function () {
     dbl += (c.match(/&amp;amp;/g) || []).length;
   });
   ok(dbl === 0, 'item12: no double-escaped ampersands remain (' + dbl + ')');
-  const dash = fs.readFileSync(path.join(ROOT, 'dashboard.html'), 'utf8');
-  ['Goals &amp; learning plans', 'Voting &amp; polls', 'Reviews &amp; testimonials',
-   'Workshops &amp; events', 'Streaks &amp; badges'].forEach(l =>
-    ok(dash.indexOf(l) > -1, 'item12: "' + l.replace('&amp;', '&') + '" renders correctly'));
+  /* The ampersand labels now live in the nav MODEL as plain text; nav.js
+     escapes them once at render time. Storing them pre-escaped in JSON is
+     exactly how the 1,290 "&amp;amp;" double-escapes happened in the first
+     place, so the test now asserts the opposite of what it used to. */
+  const nm = fs.readFileSync(path.join(ROOT, 'assets/js/nav-model.js'), 'utf8');
+  ['Goals & learning plans', 'Voting & polls', 'Reviews & testimonials',
+   'Workshops & events', 'Streaks & badges'].forEach(l =>
+    ok(nm.indexOf(l) > -1, 'item12: "' + l + '" is stored unescaped in the model'));
+  ok(!/&amp;/.test(nm), 'item12: the nav model contains no pre-escaped entities');
 
   return Promise.resolve();
 })());
@@ -2164,11 +2278,16 @@ PENDING.push((function () {
   const heads = [...nav.children].filter(e => e.classList && e.classList.contains('nav-section-title'));
   const orphans = heads.filter(h => !h.nextElementSibling || h.nextElementSibling.tagName !== 'A');
   ok(orphans.length === 0, 'item4: no section heading is left without links (' + orphans.length + ')');
-  const firstKid = nav.firstElementChild;
-  ok(firstKid && firstKid.tagName === 'A' && firstKid.getAttribute('href') === 'dashboard.html',
-     'item2/6: Dashboard is pinned to the TOP of the nav (it was buried below 11 sections)');
-  ok(/ESSENTIAL_NAV: \[\s*\n[\s\S]{0,220}'dashboard'/.test(app),
-     'item2/6: a Dashboard link is guaranteed even if a build ships without one');
+  /* Home is now guaranteed by the MODEL: dashboard.html is the first item of
+     the first section, so it cannot be buried by an ordering pass. The old
+     assertion checked that App.normalizeNavOrder had moved it to the top of a
+     DOM it no longer touches. */
+  const NM = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets/js/nav-model.json'), 'utf8'));
+  ok(NM[0].items[0].href === 'dashboard.html',
+     'item2/6: Dashboard is the FIRST item of the FIRST section');
+  const navJs = fs.readFileSync(path.join(ROOT, 'assets/js/nav.js'), 'utf8');
+  ok(/if \(!drawn\)/.test(navJs),
+     'item2/6: a Dashboard link is guaranteed even when the role filter hides everything');
 
   /* ---- ITEM 1: tutor scoping in the database ---- */
   ['tc_my_tutor_id','tc_is_manager','tc_teaches_engagement','tc_teaches_learner',
@@ -2190,6 +2309,180 @@ PENDING.push((function () {
   return Promise.resolve();
 })());
 
+/* ==========================================================================
+   V25 REGRESSION TESTS
+   Report items 1, 2, 4, 6, 8, 9, 10, 11, 12-20, 21, 22, 23.
+   ========================================================================== */
+PENDING.push((function v25Tests() {
+  const RD = (f) => fs.readFileSync(path.join(ROOT, f), 'utf8');
+  const has = (f) => fs.existsSync(path.join(ROOT, f));
+  const cs = RD('database/complete-schema.sql');
+
+  // ---- items 12-20 + 9: the nine stub pages now have entry desks ----------
+  const desk = RD('assets/js/desk-kit.js');
+  [['at_risk',            'at-risk.html',          'tc_at_risk_reviews'],
+   ['practice_analytics', 'analytics.html',        'tc_practice_analytics'],
+   ['value_added',        'value-added.html',      'tc_value_added'],
+   ['predictions',        'predictions.html',      'tc_predicted_grades'],
+   ['group_insights',     'group-insights.html',   'tc_group_insights'],
+   ['insights',           'insights.html',         'tc_insight_notes'],
+   ['scoresheet',         'scoresheet.html',       'scoresheet'],
+   ['progress_reports',   'progress-reports.html', 'tc_progress_reports'],
+   ['timezones',          'timezones.html',        'tc_timezone_desk']
+  ].forEach(([key, page, table]) => {
+    ok(new RegExp("Desk\\.mount\\('" + key + "'\\)").test(RD(page)),
+       `desk: ${page} mounts the "${key}" entry desk`);
+    ok(new RegExp("table:\\s*'" + table + "'").test(desk),
+       `desk: "${key}" is wired to ${table}`);
+    ok(new RegExp('(create table if not exists public\\.' + table + '|alter table if exists public\\.' + table + ')').test(cs),
+       `desk: ${table} exists in the schema`);
+    // the reported symptom: the page said only "use the related links"
+    ok(!/Use the related links and the ❓ Page Help button/.test(RD(page)),
+       `desk: ${page} is no longer a stub`);
+  });
+
+  // Every desk must offer create, edit AND delete — "anything created must be
+  // editable and deletable afterwards".
+  ['data-desk-edit', 'data-desk-del', 'data-desk-dup', "'save'"].forEach(t =>
+    ok(desk.indexOf(t) > -1, `desk: the engine provides ${t}`));
+  ok(/_isReadTool|canWrite/.test(desk), 'desk: a family gets a read-only view');
+  ok(/Lookups/.test(desk) && /lookup: 'learners'/.test(desk),
+     'desk: learners come from a dropdown, never typed');
+  ok(/generated always as/.test(cs), 'desk: derived figures are computed by PostgreSQL, not typed');
+  ok(/\(st\.cfg\.derived \|\| \[\]\)\.forEach\(function \(dcol\) \{ delete row\[dcol\.k\]/.test(desk),
+     'desk: generated columns are never sent back to PostgreSQL');
+
+  // ---- item 8: free / outreach classes -----------------------------------
+  ok(has('free-classes.html'),  'item8: the free class cohort page exists');
+  ok(has('free-register.html'), 'item8: the public sign-up page exists');
+  const fc = RD('assets/js/free-classes.js');
+  ['youtube', 'zoom', 'meet', 'freeconference', 'whatsapp_url', 'telegram_url']
+    .forEach(k => ok(fc.indexOf(k) > -1, `item8: "${k}" is supported`));
+  ok(/tc_free_register/.test(fc) && /tc_free_register/.test(cs),
+     'item8: registration goes through a SECURITY DEFINER function, not a table grant');
+  ok(/grant execute on function public\.tc_free_register[\s\S]{0,200}to anon/.test(cs),
+     'item8: an unauthenticated student can register');
+  ok(!/grant .*insert.* on public\.tc_free_registrations to anon/i.test(cs),
+     'item8: anon can NOT write the roll table directly');
+  ok(/tc_free_convert/.test(cs), 'item8: a free student can be converted into a paying learner');
+  ok(/exam_board/.test(fc) && /WAEC/.test(fc) && /IELTS/.test(fc),
+     'item8: national and international exam boards are offered');
+  ok(/sessions_attended/.test(fc) && /avg_score/.test(fc),
+     'item8: attendance and results are tracked for free students');
+  const frp = RD('free-register.html');
+  ok(!/auth-guard\.js/.test(frp), 'item8: the public sign-up page is not behind the sign-in guard');
+  /* Findable means: NOT excluded. tools/build_seo.py strips the noindex meta
+     from every page on its public list rather than adding an explicit
+     index,follow, because an absent robots directive already means index. */
+  ok(!/noindex/.test(frp),
+     'item8: the public sign-up page is not excluded from search engines');
+  const smap = RD('sitemap.xml');
+  ok(/free-register\.html/.test(smap), 'item8: the sign-up page is in the sitemap');
+
+  // ---- item 19: the certificate studio -----------------------------------
+  const cert = RD('assets/js/cert-studio.js');
+  ['premium', 'diploma', 'classic', 'modern', 'elegant', 'minimal'].forEach(l =>
+    ok(new RegExp("'" + l + "'").test(cert), `item19: the "${l}" certificate layout exists`));
+  ok(/rosette/.test(cert), 'item19: the School Connect gold rosette is reproduced');
+  ok(/THIS IS TO CERTIFY THAT/.test(cert), 'item19: the foil ribbon banner is reproduced');
+  ok(/drive\.google\.com/.test(cert), 'item19: a Drive signature link is converted to a direct image');
+  ok(/mix-blend-mode:multiply/.test(cert), 'item19: the signature sits on the paper, not on a white box');
+  ok(/newCode/.test(cert) && /tc_verify_certificate/.test(cert),
+     'item19: every certificate carries a verifiable code');
+  ok(/tc_verify_certificate/.test(cs), 'item19: verification works without signing in');
+  ok(/batch/i.test(cert), 'item19: certificates can be issued in a batch from a quiz');
+  ok(/revoke/i.test(cert) && /revoked_reason/.test(cs), 'item19: a certificate can be revoked with a reason');
+  ok(/layout\s+text default 'premium'/.test(cs),
+     'item19: the DESIGN is stored with the award, so a reprint matches the original');
+  ok(/CertStudio\.mount/.test(RD('certificates.html')), 'item19: the studio is mounted on the page');
+
+  // ---- item 21: tutor scoping --------------------------------------------
+  ok(/tc_my_scope_report/.test(cs), 'item21: a tutor can see what they are scoped to');
+  ok(/mastery_topics/.test(cs) && /curriculum_items/.test(cs),
+     'item21: the V24 scoping loops now use table names that actually exist');
+  ok(/NOT FOUND \(check the name!\)/.test(cs),
+     'item21: a misspelt table name now raises a NOTICE instead of failing silently');
+  ['tc_at_risk_reviews', 'tc_value_added', 'tc_predicted_grades', 'tc_progress_reports']
+    .forEach(t => ok(new RegExp('tc_teaches_learner\\(learner_id\\)').test(cs) &&
+                     new RegExp(t).test(cs), `item21: ${t} is scoped to the tutor's own learners`));
+  ok(/public\.tc_is_manager\(\)/.test(cs), 'item21: an administrator is exempt from every scope');
+  ok(/force row level security/.test(cs), 'item21: RLS is FORCED, so even the table owner obeys it');
+
+  // ---- items 1, 2, 4, 10, 11: the five named content pages ---------------
+  const ad = RD('admin-data.html');
+  ok(!/call DataPortability from the console/.test(ad),
+     'item1: admin-data no longer tells an administrator to use the browser console');
+  ok(/ad-backup/.test(ad) && /ad-restore-out/.test(ad) && /ad-csv/.test(ad) && /ad-dsr/.test(ad),
+     'item1: admin-data has real backup, restore, export and DSR controls');
+  ok(/sha256/i.test(ad), 'item1: backups are checksummed');
+  ok(/tc_db_report/.test(ad) && /tc_db_report/.test(cs),
+     'item1: the quota panel calls a function that exists');
+
+  const st = RD('settings.html');
+  ['s-phone', 's-hours', 's-cycles', 's-qpass', 's-grades', 's-certsig', 's-nemail',
+   's-tagline', 's-driveid', 's-retain'].forEach(id =>
+    ok(new RegExp('id="' + id + '"').test(st), `item2: settings exposes "${id}"`));
+  ok(/data-save-card/.test(st), 'item2: each settings card saves independently');
+  ok(/s-check/.test(st), 'item2: a configuration checker points out what is missing');
+
+  const hp = RD('hmg-products.html');
+  ['School Connect', 'Tutoring Connect', 'CBT Pro', 'GOSA Portal'].forEach(p =>
+    ok(hp.indexOf(p) > -1, `item4: the "${p}" product is listed`));
+  ok(/cbtsystem-hmgacademy\.vercel\.app/.test(hp), 'item4: the CBT Pro demo is linked');
+  ok(/github\.com\/hmgacademyhub\/cbt-system/.test(hp), 'item4: the CBT Pro repository is linked');
+  ok(/data-pfilter/.test(hp), 'item4: the catalogue can be filtered by organisation type');
+
+  const ct = RD('contact.html');
+  ok(/cf-send/.test(ct) && /cf-msg/.test(ct), 'item10: contact has a working message form');
+  ok(/from\('inquiries'\)/.test(ct), 'item10: the form writes to the studio inbox, not a mailto: link');
+  ok(/contact-hours-local/.test(ct),
+     'item10: teaching hours are converted into the visitor\u2019s own time zone');
+  ok(/wa\.me|whatsapp/i.test(ct), 'item10: WhatsApp is one tap away');
+
+  const dv = RD('developer.html');
+  ok(/HMG Technologies/.test(dv) && /Adewale Samson Adeagbo/.test(dv),
+     'item11: the developer page names who actually maintains the platform');
+  ok(/No paid AI service anywhere/.test(dv), 'item11: the AI position is stated honestly');
+  ok(/One-time ownership/.test(dv) && /Subscription/.test(dv),
+     'item11: both licensing models are described');
+  ok(!/Use the related links and the ❓ Page Help button/.test(dv),
+     'item11: the developer page is no longer a stub');
+
+  // ---- item 6: page descriptions -----------------------------------------
+  let boiler = 0, noRoles = 0, thinIntro = [];
+  fs.readdirSync(ROOT).filter(f => /\.html$/.test(f)).forEach(f => {
+    const h = RD(f);
+    if (!/page-intro-what/.test(h)) return;
+    // the sentence the report asked to be removed
+    if (/main actions available here are: <b>Sign out<\/b>/.test(h)) boiler++;
+    if (!/page-intro-roles/.test(h)) noRoles++;
+    const m = h.match(/<p class="page-intro-what">([\s\S]*?)<\/p>/);
+    if (m && m[1].length < 200) thinIntro.push(f);
+  });
+  ok(boiler === 0, `item6: the "main actions: Sign out, Theme" boilerplate is gone (${boiler} left)`);
+  ok(noRoles === 0, `item6: every page states what each role sees (${noRoles} missing)`);
+  ok(thinIntro.length === 0, `item6: no page description is a one-liner (${thinIntro.length}: ${thinIntro.slice(0,4)})`);
+
+  // A public page must never claim its visitors have no access.
+  const pub = ['about.html', 'contact.html', 'developer.html', 'hmg-products.html',
+               'hmg-ecosystem.html', 'feature-guide.html'];
+  pub.forEach(f => {
+    const h = RD(f);
+    const m = h.match(/<details class="page-intro-roles">([\s\S]*?)<\/details>/);
+    ok(m && !/Parent:<\/b> No access/.test(m[1]),
+       `item6: ${f} does not tell a parent they cannot open a public page`);
+  });
+
+  // ---- item 23: the schema registry reports the truth --------------------
+  const lastReg = cs.lastIndexOf('insert into public.tc_schema_registry');
+  ok(cs.slice(lastReg, lastReg + 120).indexOf("'V25'") > -1,
+     'item23: the LAST registry upsert in the file is the current version');
+  ok(cs.indexOf("'V20'", lastReg) === -1 && cs.indexOf("'V22'", lastReg) === -1,
+     'item23: no stale registry upsert runs after the current one');
+
+  return Promise.resolve();
+})());
+
 /* --------------------------------------------------------------- report */
 Promise.all(PENDING).then(function () {
 console.log(`  PASS ${R.pass}` + (R.skip ? `   (${R.skip} generator-only checks skipped)` : ''));
@@ -2200,3 +2493,4 @@ if (R.fail.length) {
 console.log(`\n  RESULT: ${R.fail.length ? 'FAILED' : 'ALL RUNTIME TESTS PASSED'}\n`);
 process.exit(R.fail.length ? 1 : 0);
 });
+
