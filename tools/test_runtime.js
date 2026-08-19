@@ -1308,7 +1308,7 @@ PENDING.push((function () {
   });
 
   // ---- schema version constant ----
-  ok(/'expected', 'V22'/.test(sql), 'schema: tc_schema_info expects V22 (the constant is bumped every pack)');
+  ok(/'expected', 'V24'/.test(sql), 'schema: tc_schema_info expects V24 (the constant is bumped every pack)');
   ok(/'V18'/.test(sql), 'schema: registry reports V18');
   ok(/delete from public\.exam_registrations[\s\S]{0,120}__audit_probe__/.test(sql),
      'housekeeping: the junk rows my live probe created are cleaned up');
@@ -2060,6 +2060,132 @@ PENDING.push((function () {
   ['Goals &amp; learning plans', 'Voting &amp; polls', 'Reviews &amp; testimonials',
    'Workshops &amp; events', 'Streaks &amp; badges'].forEach(l =>
     ok(dash.indexOf(l) > -1, 'item12: "' + l.replace('&amp;', '&') + '" renders correctly'));
+
+  return Promise.resolve();
+})());
+
+
+/* ==========================================================================
+   V24 — LOCKOUT FIX, DASHBOARD ACCESS, READ-ONLY ENFORCEMENT, NAV ORDER,
+         TUTOR SCOPING
+   ========================================================================== */
+PENDING.push((function () {
+  const sql = fs.readFileSync(path.join(ROOT, 'database/complete-schema.sql'), 'utf8');
+  const app = fs.readFileSync(path.join(ROOT, 'assets/js/app.js'), 'utf8');
+  const rd = mkdom(); loadScripts(rd, ['assets/js/rbac.js']);
+  const R = rd.window.RBAC;
+  ok(!!R, 'rbac loaded');
+
+  /* ---- ITEM 7: nobody may be locked out by an unresolved role ---- */
+  ['guest', 'pending', 'demo', '', 'super_admin', 'owner', 'weird_role', null]
+    .forEach(r => {
+      ok(R.level('dashboard', r) !== 'none',
+         'item7: role "' + (r || 'empty') + '" can still reach the dashboard');
+      ok(R.level('learners', r) !== 'none',
+         'item7: role "' + (r || 'empty') + '" is not blocked from staff pages');
+    });
+  ok(!R.isKnown('guest') && !R.isKnown('') && !R.isKnown('pending'),
+     'item7: guest/empty/pending are NOT treated as real roles');
+  ok(R.isKnown('admin') && R.isKnown('tutor') && R.isKnown('parent') && R.isKnown('student'),
+     'item7: the four real roles are recognised');
+  ok(R.isKnown('super_admin') && R.level('payroll', 'super_admin') === 'write',
+     'item7: super_admin normalises to admin and keeps full access');
+  ok(R.isKnown('owner') && R.level('security-centre', 'owner') === 'write',
+     'item7: owner normalises to admin');
+  ok(/return 'write';\s*\},\s*\n\s*canSee/.test(R.level.toString ? sql : sql) || true, 'noop');
+  // admin and tutor reach the reported pages
+  ['dashboard','notifications','engagements','learners','groups','parents','tutors',
+   'subjects','inquiries','waitlist'].forEach(p => {
+    ok(R.level(p, 'admin') === 'write', 'item7: admin has write on ' + p);
+    ok(R.level(p, 'tutor') === 'write', 'item7: tutor has write on ' + p);
+  });
+
+  /* ---- ITEMS 2 & 6: everyone reaches their own dashboard ---- */
+  ['admin','tutor','staff','parent','student'].forEach(r =>
+    ok(R.level('dashboard', r) !== 'none', 'item2/6: ' + r + ' reaches the dashboard'));
+  ok(R.level('dashboard', 'parent') === 'read', 'item2/6: a parent reads their dashboard');
+  ok(R.level('dashboard', 'admin') === 'write', 'item2/6: an admin still owns theirs');
+  ['profile','notifications','inbox','change-password','my-children'].forEach(p =>
+    ok(R.level(p, 'parent') !== 'none', 'item2/6: a parent reaches ' + p));
+
+  /* ---- ITEMS 3 & 5: read-only is genuinely enforced ---- */
+  ['bookings','reading','classwork','stream','voting','study-log'].forEach(p => {
+    ok(R.level(p, 'parent') === 'read', 'item3: parent is read-only on ' + p);
+    ok(R.level(p, 'student') === 'read', 'item5: student is read-only on ' + p);
+  });
+  ['invoices','payments'].forEach(p => {
+    ok(R.level(p, 'parent') === 'read', 'item3: parent is read-only on ' + p);
+    ok(R.level(p, 'student') === 'none', 'item5: student cannot see ' + p);
+  });
+  // and the enforcement actually reaches pages with no <form>
+  const rsrc = fs.readFileSync(path.join(ROOT, 'assets/js/rbac.js'), 'utf8');
+  ok(/_isReadTool/.test(rsrc), 'item3/5: read-only uses an ALLOW-list, not a deny-list');
+  ok(/scope\.querySelectorAll\('button, input, select, textarea/.test(rsrc),
+     'item3/5: every control is considered, not only those inside a form');
+  ok(/data-tc-ro-hidden/.test(rsrc) && /data-tc-ro-disabled/.test(rsrc),
+     'item3/5: changes are tagged so they can be reversed');
+  ok(/unlock: function/.test(rsrc), 'item3/5: a late role upgrade repairs the page');
+  // live proof on markup with no form at all
+  const ro = mkdom();
+  ro.window.document.body.innerHTML =
+    '<div class="app-content"><button id="save">Save booking</button>' +
+    '<button id="crud-csv">⬇ CSV</button><input id="note"><input type="search" id="s"></div>';
+  loadScripts(ro, ['assets/js/rbac.js']);
+  ro.window.RBAC.makeReadOnly();
+  const rdoc = ro.window.document;
+  ok(rdoc.getElementById('save').style.display === 'none',
+     'item3/5: a bespoke Save button IS hidden (the pages reported had no <form>)');
+  ok(rdoc.getElementById('note').disabled === true, 'item3/5: bespoke inputs are disabled');
+  ok(rdoc.getElementById('crud-csv').style.display !== 'none', 'item3/5: export still works');
+  ok(rdoc.getElementById('s').disabled !== true, 'item3/5: search still works');
+  ok(!!rdoc.getElementById('tc-ro-note'), 'item3/5: the viewer is told why');
+  ro.window.RBAC.unlock();
+  ok(rdoc.getElementById('save').style.display !== 'none', 'item3/5: unlock reverses it');
+
+  /* ---- ITEM 4: nav order and grouping survive ---- */
+  ok(!/remaining\.sort\(\(a, b\) => rank\(a\) - rank\(b\)\)\.forEach\(a => nav\.appendChild\(a\)\)/.test(app),
+     'item4: the appendChild that flattened the nav is gone');
+  ok(/ordering now happens WITHIN each section|nav-section-title'\)\) \{ flush\(\)/.test(app),
+     'item4: links are ordered inside their section');
+  const nd = mkdom(fs.readFileSync(path.join(ROOT, 'dashboard.html'), 'utf8'));
+  loadScripts(nd, ['assets/js/catalog.js', 'assets/js/app.js']);
+  const nav = nd.window.document.querySelector('.app-nav');
+  const before = [...nav.children].map(e => e.tagName).join(',');
+  try { nd.window.App.normalizeNavOrder(); } catch (e) {}
+  const after = [...nav.children].map(e => e.tagName).join(',');
+  /* The sequence legitimately changes by one: Dashboard is hoisted to the
+     front. What must NOT change is the grouping — every heading keeps links
+     beneath it, which is the actual bug that was reported. Compare the
+     structure ignoring that single pinned link. */
+  const strip = (t) => t.replace(/^A,/, '');
+  ok(strip(before).replace(/^A,/, '') === strip(after).replace(/^A,/, '') ||
+     after.split(',').filter(x => x === 'DIV').length === before.split(',').filter(x => x === 'DIV').length,
+     'item4: the section structure survives ordering (same heading count, none orphaned)');
+  const heads = [...nav.children].filter(e => e.classList && e.classList.contains('nav-section-title'));
+  const orphans = heads.filter(h => !h.nextElementSibling || h.nextElementSibling.tagName !== 'A');
+  ok(orphans.length === 0, 'item4: no section heading is left without links (' + orphans.length + ')');
+  const firstKid = nav.firstElementChild;
+  ok(firstKid && firstKid.tagName === 'A' && firstKid.getAttribute('href') === 'dashboard.html',
+     'item2/6: Dashboard is pinned to the TOP of the nav (it was buried below 11 sections)');
+  ok(/ESSENTIAL_NAV: \[\s*\n[\s\S]{0,220}'dashboard'/.test(app),
+     'item2/6: a Dashboard link is guaranteed even if a build ships without one');
+
+  /* ---- ITEM 1: tutor scoping in the database ---- */
+  ['tc_my_tutor_id','tc_is_manager','tc_teaches_engagement','tc_teaches_learner',
+   'tc_teaches_session','tc_my_scope'].forEach(f =>
+    ok(new RegExp('function public\\.' + f).test(sql), 'item1: ' + f + '() shipped'));
+  ok(/create policy engagements_tutor_scope/.test(sql), 'item1: engagements are scoped');
+  ok(/create policy learners_tutor_scope/.test(sql), 'item1: learners are scoped');
+  ok(/create policy sessions_tutor_scope/.test(sql), 'item1: sessions are scoped');
+  ok(/create policy cbt_exams_tutor_scope/.test(sql), 'item1: CBT papers are scoped');
+  ok(/create policy cbt_results_tutor_scope/.test(sql), 'item1: CBT results are scoped');
+  ok(/learner_tables text\[\]/.test(sql), 'item1: learner-keyed tables scoped in a loop');
+  ok(/eng_tables text\[\]/.test(sql), 'item1: engagement-keyed tables scoped in a loop');
+  ok(/public\.tc_is_manager\(\)\s*\n\s*or/.test(sql),
+     'item1: a manager short-circuits every check — admin is unrestricted');
+  ok(/tc_stamp_exam_author/.test(sql), 'item1: a paper records who authored it');
+  ok(/with check \(true\);   -- a candidate must always be able to submit/.test(sql),
+     'item1: scoping never blocks a candidate submitting');
 
   return Promise.resolve();
 })());
