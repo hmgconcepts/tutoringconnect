@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Tutoring Connect Builder — HMG Concepts internal platform builder</title>
 <meta name="description" content="6-step wizard that builds a complete independent tutoring platform. Themes, fonts, 120+ modules. HMG Ecosystem licensed. Logo is a URL — never an upload.">
-<meta name="theme-color" content="#4f46e5">
+<meta name="theme-color" content="#0506ae">
 <link rel="icon" type="image/svg+xml" href="assets/img/logo.svg">
 <link rel="manifest" href="manifest.json">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -25,6 +25,12 @@
 </style>
 <script src="assets/js/theme-engine.js"></script>
 <script src="assets/js/page-guide.js" defer></script>
+<script src="assets/js/nav-model.js"></script>
+<script src="assets/js/nav.js"></script>
+<script src="assets/js/desk-kit.js"></script>
+<script src="assets/js/cert-studio.js"></script>
+<script src="assets/js/cbt-manage.js"></script>
+<script src="assets/js/free-classes.js"></script>
 </head>
 <body>
 <nav class="public-nav" style="display:flex;justify-content:space-between;padding:16px 24px">
@@ -38,7 +44,8 @@
         <p class="page-intro-who"><b>Who it is for.</b> HMG representatives only — this page is never shipped inside a client build.</p>
         <p class="page-intro-why"><b>Why it matters.</b> It is the factory. Every client studio in existence is stamped out of this one page, which is why its output has to be complete and correct.</p>
         <details class="page-intro-how"><summary>How to use this page</summary><ol><li>Work through the wizard step by step.</li><li>Preview the chosen theme, font and layout live before committing.</li><li>Download the ZIP, then follow DEPLOYMENT-GUIDE.md exactly.</li><li>Run database/complete-schema.sql in a fresh Supabase project and promote the first admin.</li></ol></details>
-        <p class="page-intro-rel"><b>Related:</b> <a href="about.html">about</a> · <a href="activity-log.html">activity log</a> · <a href="admin-data.html">admin data</a> · <a href="approvals.html">approvals</a> · <a href="change-password.html">change password</a> · <a href="contact.html">contact</a></p>
+        <details class="page-intro-roles"><summary>What each role sees here</summary><ul><li><b>Owner:</b> Full access.</li><li><b>Tutor:</b> Full access for the learners and groups assigned to them, and nothing else.</li><li><b>Parent:</b> No access.</li><li><b>Learner:</b> No access.</li></ul></details>
+        <p class="page-intro-rel"><b>Related:</b> <a href="about.html">about</a> · <a href="activity-log.html">activity log</a> · <a href="admin-data.html">admin data</a> · <a href="approvals.html">approvals</a> · <a href="cbt-results.html">cbt results</a> · <a href="change-password.html">change password</a></p>
       </section>
   <h1>🚀 Build a tutoring studio</h1>
   <p class="muted">HMG Concepts internal workflow. Configure, package and hand a client a parent-facing portal — never this builder.</p>

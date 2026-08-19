@@ -4,8 +4,9 @@
 <script src="assets/js/auth-guard.js"></script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Marketing flyer • ADEWALE CLASSROOM</title>
-<meta name="description" content="Printable admissions flyer. Free lead-gen.">
+<title>Free class cohorts • ADEWALE CLASSROOM</title>
+<meta name="robots" content="noindex,nofollow">
+<meta name="description" content="Six transparent rules. No AI.">
 <meta name="theme-color" content="#0506ae">
 <meta name="author" content="HMG Technologies · HMG Concepts">
 <link rel="icon" type="image/svg+xml" href="assets/img/logo.svg">
@@ -13,8 +14,8 @@
 <link rel="apple-touch-icon" href="assets/img/logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Source+Serif+4:wght@600;800&display=swap" rel="stylesheet">
-<meta property="og:title" content="Marketing flyer • ADEWALE CLASSROOM">
-<meta property="og:description" content="Printable admissions flyer. Free lead-gen.">
+<meta property="og:title" content="At-risk board • ADEWALE CLASSROOM">
+<meta property="og:description" content="Six transparent rules. No AI.">
 <meta property="og:type" content="website">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="stylesheet" href="assets/css/style.css">
@@ -93,7 +94,7 @@
   <div class="app-main">
     <header class="app-topbar">
       <button class="mobile-toggle" type="button" aria-label="Menu">☰</button>
-      <h1 class="app-page-title">Marketing flyer</h1>
+      <h1 class="app-page-title">Free class cohorts</h1>
       <div class="user-chip"><strong id="user-display-name" data-user-name></strong>
         <span id="user-display-role" data-user-role></span>
         <button class="btn btn-sm btn-ghost" id="btn-dark" type="button">Theme</button>
@@ -101,16 +102,18 @@
     </header>
     <main class="app-content">
       <section class="help-card page-intro">
-        <div class="page-intro-head"><strong>Marketing flyer</strong><span class="page-intro-badge" style="background:#0f766e">🌍 Public page</span></div>
-        <p class="page-intro-what">A printable, brand-matched one-page flyer for the studio, built from the details in Settings so it can never disagree with the website. Subjects, exam boards, timetable, price position and contact details, with a QR code to the application page. Print it, or export it as an image for WhatsApp status. Free lead generation that costs one click. Open to anyone, no sign-in needed. It is deliberately indexed by search engines so families can find the studio.</p>
-        <p class="page-intro-who"><b>Who it is for.</b> Owner and admin — this is business development. Families never see the pipeline.</p>
-        <p class="page-intro-why"><b>Why it matters.</b> Tutoring income is won or lost at the top of the funnel. Recording every enquiry means you can see which channel actually produces paying families.</p>
-        <details class="page-intro-how"><summary>How to use this page</summary><ol><li>New enquiries land here automatically from the public Apply form and the contact form.</li><li>Triage each one: assign an owner, set a status, add a note about what was discussed.</li><li>Convert a warm enquiry into a trial lesson, then into a full engagement once they commit.</li><li>Watch the funnel counts at the top — they show you exactly where prospects go cold.</li></ol></details>
-        <details class="page-intro-roles"><summary>What each role sees here</summary><ul><li><b>Owner:</b> Full access, and can edit the content behind it in Settings.</li><li><b>Tutor:</b> Full access — it is a public page.</li><li><b>Parent:</b> Full access — it is a public page.</li><li><b>Learner:</b> Full access — it is a public page.</li></ul></details>
-        <p class="page-intro-rel"><b>Related:</b> <a href="feature-guide.html">feature guide</a> · <a href="site-index.html">site index</a> · <a href="about.html">about</a> · <a href="contact.html">contact</a> · <a href="developer.html">developer</a></p>
+        <div class="page-intro-head"><strong>Free class cohorts</strong><span class="page-intro-badge" style="background:#334155">🎓 Staff only</span></div>
+        <p class="page-intro-what">Runs the studio's free outreach programmes — the JAMB bootcamp on YouTube, the WAEC clinic on Zoom, the IELTS drop-in on Google Meet — end to end. Create a cohort, attach the meeting link, the replay link and the WhatsApp or Telegram group, generate a shareable registration link, and then track attendance, quiz results and who is worth converting into a paying learner. Requires sign-in as a tutor, admin or owner. Families cannot open it and the database refuses their queries even if they try the URL directly.</p>
+        <p class="page-intro-who"><b>Who it is for.</b> Tutors and administrators. Registrants themselves never see this page; they see the public sign-up page.</p>
+        <p class="page-intro-why"><b>Why it matters.</b> Free students are not paying clients and must never touch invoices, payroll or the fee ledger — but they still have to be registered, tracked, assessed and evaluated, and the strongest of them are the studio's best source of paying enrolments.</p>
+        <details class="page-intro-how"><summary>How to use this page</summary><ol><li>Create the cohort: name it, choose the exam board and the platform, and paste the meeting, replay and group-chat links. Nothing is uploaded — links only.</li><li>Generate a registration link. Give each channel its own link (Instagram, WhatsApp status, a school) so you can see which one actually works.</li><li>Share the link. Anyone can register without an account; they receive a registration number immediately.</li><li>Work the roll: approve registrations, record attendance and quiz results, and note who is engaging.</li><li>Press <b>Convert</b> on a strong registrant to create a real learner record, keeping the whole free-class history attached.</li></ol></details>
+        <details class="page-intro-roles"><summary>What each role sees here</summary><ul><li><b>Owner:</b> Full access.</li><li><b>Tutor:</b> Full access for the learners and groups assigned to them, and nothing else.</li><li><b>Parent:</b> No access.</li><li><b>Learner:</b> No access.</li></ul></details>
+        <p class="page-intro-rel"><b>Related:</b> <a href="free-register.html">free register</a></p>
       </section>
-      <div id="crud-root"></div>
-      <script>document.addEventListener('DOMContentLoaded',()=>{ if(window.CRUD) CRUD.renderList('flyer'); });</script>
+      <div id="free-root"></div>
+      <script>document.addEventListener('DOMContentLoaded',function(){
+        if(window.FreeClasses)FreeClasses.mount('free-root');
+      });</script>
     </main>
   </div>
 </div>
