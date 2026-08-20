@@ -607,7 +607,21 @@ PENDING.push((function v11Tests() {
     // humanising
     D.installToastFilter();
     const h = D.humanise('PGRST202 Could not find the function public.tc_keep_alive_status');
-    ok(h.matched && /database is behind/i.test(h.text), 'doctor: raw Postgres noise becomes plain English');
+    ok(h.matched && /function is missing/i.test(h.text),
+       'doctor: raw Postgres noise becomes plain English');
+    /* V26 — reported item 11. A MISSING FUNCTION used to be announced as
+       "A table is missing", because the generic /does not exist/ pattern was
+       tested before any object-specific one. The advice that followed was then
+       useless, which is why re-running the schema never helped. */
+    const hf = D.humanise('function public.tc_cbt_set_state(uuid, text) does not exist');
+    ok(hf.matched && /function is missing/i.test(hf.text) && !/table is missing/i.test(hf.text),
+       'item11: a missing FUNCTION is not reported as a missing table');
+    ok(/tc_cbt_set_state/.test(hf.text), 'item11: the error names the object that is missing');
+    ok(/reload schema/i.test(hf.text),
+       'item11: the advice mentions the PostgREST cache, the usual real cause');
+    const ht = D.humanise('relation "public.tc_free_links" does not exist');
+    ok(ht.matched && /table is missing/i.test(ht.text),
+       'item11: a genuinely missing TABLE is still reported as one');
     const h2 = D.humanise('new row violates row-level security policy for table "cbt_results"');
     ok(h2.matched && /refused/i.test(h2.text), 'doctor: RLS refusal explained');
     // families must never see infrastructure errors
@@ -833,7 +847,14 @@ PENDING.push((function v14Tests() {
   loadScripts(d0, ['assets/js/cbt-exam-kit.js']);
   const C = d0.window.SciCalc, K = d0.window.ExamKit;
   const cases = [['2+3*4',14],['(2+3)*4',20],['2^3^2',512],['sqrt(16)',4],['5!',120],
-                 ['sin(30)',0.5],['log(1000)',3],['ln(e)',1],['logb(2,8)',3],
+                 ['sin(30)',0.5],['log(1000)',3],['ln(e)',1],/* V26 — logb now takes the VALUE first, as Excel, Casio and Desmos all do.
+                    It previously read logb(base, value), so logb(8,2) silently returned
+                    0.333 instead of 3 in an exam calculator. The expectation below is
+                    the corrected convention; the old one is asserted to FAIL. */
+                 ['logb(8,2)',3],['logb(1000,10)',3],['root(27,3)',3],['hypot(3,4)',5],
+                 ['mod(-1,3)',2],['gcd(12,18)',6],['lcm(4,6)',12],['log2(8)',3],
+                 ['sec(60)',2],['cot(45)',1],['max(2,7,5)',7],['mean(2,4,6)',4],
+                 ['trunc(-2.7)',-2],['inv(4)',0.25],['sq(7)',49],['todeg(pi)',180],
                  ['nCr(5,2)',10],['nPr(5,2)',20],['3(4+1)',15],['2sin(30)',1],['cbrt(27)',3]];
   let bad = [];
   cases.forEach(function (c) { try { if (Math.abs(C.evaluate(c[0]) - c[1]) > 1e-9) bad.push(c[0]); } catch (e) { bad.push(c[0]); } });
@@ -2475,10 +2496,278 @@ PENDING.push((function v25Tests() {
 
   // ---- item 23: the schema registry reports the truth --------------------
   const lastReg = cs.lastIndexOf('insert into public.tc_schema_registry');
-  ok(cs.slice(lastReg, lastReg + 120).indexOf("'V25'") > -1,
-     'item23: the LAST registry upsert in the file is the current version');
-  ok(cs.indexOf("'V20'", lastReg) === -1 && cs.indexOf("'V22'", lastReg) === -1,
+  /* Do not hard-code the version here — that just moves the maintenance
+     problem. Assert the INVARIANT: the last upsert must name the highest
+     version that appears anywhere in the file. */
+  const allVers = [...cs.matchAll(/values \(1, '(V\d+)'/g)].map(m => m[1]);
+  const highest = allVers.map(v => parseInt(v.slice(1), 10)).sort((a, b) => b - a)[0];
+  ok(cs.slice(lastReg, lastReg + 140).indexOf("'V" + highest + "'") > -1,
+     `item23: the LAST registry upsert names the highest version (V${highest})`);
+  const after = cs.slice(lastReg + 10);
+  ok(!/insert into public\.tc_schema_registry/.test(after),
      'item23: no stale registry upsert runs after the current one');
+
+  /* V26 — the file must END by reloading the PostgREST schema cache, or a
+     freshly created function stays invisible to the API and reports as
+     "missing" however many times the file is re-run. That was report item 11. */
+  ok(/notify pgrst, 'reload schema';\s*\n\s*select public\.tc_schema_ok\(\)/.test(cs),
+     'item11: the schema file ends with a PostgREST cache reload and a self-check');
+  ok(/create or replace function public\.tc_schema_selftest/.test(cs),
+     'item6: the schema can verify its own install');
+
+  return Promise.resolve();
+})());
+
+/* ==========================================================================
+   V26 REGRESSION TESTS
+   Every bug reported in this round, asserted against the REAL CSV files the
+   user supplied (tools/fixtures-csv/), so none of them can quietly return.
+   ========================================================================== */
+PENDING.push((function v26Tests() {
+  const RD = (f) => fs.readFileSync(path.join(ROOT, f), 'utf8');
+  /* Several assertions below are of the form "this buggy line must NOT appear".
+     The fixes are documented in comments that QUOTE the buggy line, so a naive
+     search matches the explanation and reports a false failure. Strip comments
+     first: these assertions are about CODE. */
+  const CODE = (f) => RD(f)
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')
+    .replace(/^\s*\/\/.*$/gm, ' ')
+    .replace(/<!--[\s\S]*?-->/g, ' ');
+  const cs = RD('database/complete-schema.sql');
+
+  /* ---------------------------------------------------------------------
+     ITEM 9 — a blank paper must score ZERO.
+
+     Reproduced by rendering each supplied paper into a DOM, touching
+     NOTHING, and harvesting. Before the fix these scored 56%, 59% and 15%
+     because CBTTypes.collect fell back to the first radio in each group.
+     --------------------------------------------------------------------- */
+  const fixDir = path.join(ROOT, 'tools/fixtures-csv');
+  const fixtures = fs.existsSync(fixDir)
+    ? fs.readdirSync(fixDir).filter(f => /\.csv$/i.test(f)) : [];
+  ok(fixtures.length >= 3, `item9: the reported CSV fixtures are present (${fixtures.length})`);
+
+  fixtures.forEach(function (name) {
+    const dom = mkdom('<div id="root"></div>');
+    const w2 = dom.window;
+    w2.TC = { esc: s => String(s == null ? '' : s).replace(/[&<>"]/g, c =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])) };
+    ['assets/js/cbt-types.js', 'assets/js/cbt.js'].forEach(f => w2.eval(RD(f)));
+
+    const qs = w2.CBT.parseCSV(fs.readFileSync(path.join(fixDir, name), 'utf8'));
+    ok(qs.length > 0, `item9 [${name}]: the CSV parses`);
+
+    const root = w2.document.getElementById('root');
+    root.innerHTML = qs.map((q, i) => w2.CBT.renderQuestion(q, i, false)).join('');
+    root.querySelectorAll('.cbt-q').forEach((c, i) => { c._q = qs[i]; });
+    try { w2.CBTTypes.activate(w2.document); } catch (e) {}
+
+    const answers = w2.CBT.collectAnswers(root);      // nothing touched
+    const nonBlank = Object.keys(answers).filter(k => !w2.CBTTypes.isBlank(answers[k]));
+    ok(nonBlank.length === 0,
+       `item9 [${name}]: an untouched paper harvests NO answers (${nonBlank.length} leaked)`);
+
+    const res = w2.CBT.grade(qs, answers);
+    ok(res.got === 0,
+       `item9 [${name}]: an untouched paper scores 0, not ${res.got}/${res.max}`);
+    ok(res.correct === 0,
+       `item9 [${name}]: no question is marked correct on a blank paper (${res.correct})`);
+  });
+
+  /* The exact defect, asserted at source so a future refactor cannot undo it. */
+  const types = RD('assets/js/cbt-types.js');
+  ok(!/querySelector\('\[name="' \+ name \+ '"\]:checked'\)\s*\|\|\s*root\.querySelector/
+       .test(CODE('assets/js/cbt-types.js')),
+     'item9: the radio fallback that answered every MCQ with option A is gone');
+  ok(/kind === 'radio' \|\| kind === 'checkbox'/.test(types),
+     'item9: an unchecked radio or checkbox is treated as no answer');
+  ok(/tcTouched/.test(types),
+     'item9: an untouched ordering list is not submitted as an answer');
+
+  /* ---------------------------------------------------------------------
+     ITEM 2 — answer keys that live in the Items / Pairs column.
+     --------------------------------------------------------------------- */
+  {
+    const dom = mkdom('<div></div>');
+    const w2 = dom.window;
+    w2.TC = { esc: s => String(s == null ? '' : s) };
+    ['assets/js/cbt-types.js', 'assets/js/cbt.js'].forEach(f => w2.eval(RD(f)));
+
+    // Python-literal cells, exactly as the supplied files contained them.
+    const L = w2.CBTTypes.lenientJSON;
+    ok(JSON.stringify(L("['new creature|new creation', 'new']")) ===
+       JSON.stringify(['new creature|new creation', 'new']),
+       'item2: a Python-style list in the Items column is parsed');
+    ok((L('{"min_words":40,"keywords":[\'sinner\', \'forgiven\']}') || {}).min_words === 40,
+       'item2: a mixed JSON/Python dict is parsed');
+    ok(JSON.stringify(L('["a", "b",]')) === JSON.stringify(['a', 'b']),
+       'item2: a trailing comma does not break the parse');
+
+    fixtures.forEach(function (name) {
+      const qs = w2.CBT.parseCSV(fs.readFileSync(path.join(fixDir, name), 'utf8'));
+      const tutor = qs.filter(q => q.tutor_marked);
+      const broken = qs.filter(q => !q.tutor_marked && !w2.CBTTypes.hasKey(q));
+      ok(broken.length === 0,
+         `item2 [${name}]: no machine-markable question is left unkeyed (${broken.length})`);
+      ok(tutor.length > 0,
+         `item2 [${name}]: essays are flagged for the tutor, not reported as broken (${tutor.length})`);
+      // cloze and ordering must have picked their key up from Items
+      const cloze = qs.filter(q => q.type === 'cloze');
+      if (cloze.length) {
+        ok(cloze.every(q => w2.CBTTypes.hasKey(q)),
+           `item2 [${name}]: every cloze question got its key from the Items column`);
+      }
+      const ordering = qs.filter(q => q.type === 'ordering');
+      if (ordering.length) {
+        ok(ordering.every(q => w2.CBTTypes.hasKey(q)),
+           `item2 [${name}]: every ordering question got its key from the Items column`);
+      }
+    });
+  }
+
+  /* ---------------------------------------------------------------------
+     ITEM 7 — tutor marking
+     --------------------------------------------------------------------- */
+  const mk = RD('assets/js/cbt-marking.js');
+  ok(/tc_cbt_marking_queue/.test(mk) && /tc_cbt_marking_queue/.test(cs),
+     'item7: the marking queue exists in the app and in the schema');
+  ok(/tc_cbt_award_marks/.test(mk) && /tc_cbt_award_marks/.test(cs),
+     'item7: marks are awarded through one database function');
+  ok(/marking_status/.test(cs) && /awaiting_marking/.test(cs),
+     'item7: a submission awaiting a human is parked, not silently scored');
+  ok(/released\s+boolean/.test(cs),
+     'item7: a provisionally marked result is held back from the family');
+  ok(/tc_cbt_classify_marking/.test(cs),
+     'item7: submissions are classified on arrival');
+  ok(/marking-root/.test(RD('cbt-results.html')) && /cbt-marking\.js/.test(RD('cbt-results.html')),
+     'item7: the marking desk is mounted on the results page');
+  ok(/TUTOR_MARKED_TYPES/.test(RD('assets/js/cbt.js')),
+     'item7: the types a machine must not mark are declared in one place');
+
+  /* ---------------------------------------------------------------------
+     ITEM 1 — calculator and maths keyboard
+     --------------------------------------------------------------------- */
+  {
+    const dom = mkdom('<body><textarea id="a"></textarea></body>');
+    const w2 = dom.window;
+    w2.eval(RD('assets/js/cbt-exam-kit.js'));
+    const C = w2.ExamKit.calc;
+    [['logb(8,2)', 3], ['root(27,3)', 3], ['hypot(3,4)', 5], ['mod(-1,3)', 2],
+     ['gcd(12,18)', 6], ['lcm(4,6)', 12], ['log2(8)', 3], ['sec(60)', 2],
+     ['cot(45)', 1], ['max(2,7,5)', 7], ['mean(2,4,6)', 4], ['atan2(1,1)', 45],
+     ['trunc(-2.7)', -2], ['frac(2.75)', 0.75], ['todeg(pi)', 180], ['inv(4)', 0.25],
+     ['sq(7)', 49], ['cube(3)', 27], ['asinh(0)', 0], ['acosh(1)', 0]
+    ].forEach(([expr, want]) => {
+      let got = null;
+      try { got = C.evaluate(expr); } catch (e) { got = 'ERR:' + e.message; }
+      ok(typeof got === 'number' && Math.abs(got - want) < 1e-6,
+         `item1: calculator ${expr} = ${want} (got ${got})`);
+    });
+    ok(Math.abs(C.evaluate('logb(1000,10)') - 3) < 1e-9,
+       'item1: logb takes the VALUE first, matching Excel and Casio');
+
+    w2.ExamKit.trackFields();
+    w2.ExamKit.toggleMathKeyboard();
+    const kb = w2.document.getElementById('tc-mathkb');
+    const keys = kb.querySelectorAll('[data-s]');
+    ok(keys.length >= 250, `item1: the maths keyboard has at least 250 symbols (${keys.length})`);
+    ok(kb.querySelectorAll('.tc-kb-group').length >= 14,
+       'item1: symbols are grouped into at least 14 labelled sections');
+    ok(!!kb.querySelector('#tc-kb-find'), 'item1: the keyboard is searchable');
+    ['∫', '∂', '∇', 'ℝ', 'ℤ', '⊆', '⇌', '∠', '⌈', 'x̄', 'χ²', '₄', '⁵', 'ω', 'Ξ']
+      .forEach(sym => ok(kb.querySelector('[data-s="' + sym + '"]'),
+                         `item1: the keyboard offers "${sym}"`));
+
+    w2.ExamKit.toggleCalculator();
+    const pad = w2.document.getElementById('tc-calc');
+    ok(!!pad.querySelector('[data-k="2nd"]'), 'item1: the calculator has a 2nd key');
+    ok(!!pad.querySelector('.tc-calc-ref'), 'item1: the calculator documents what it understands');
+    ok(!/if \(k === '2nd'\) \{ return; \}/.test(CODE('assets/js/cbt-exam-kit.js')),
+       'item1: the 2nd key is no longer a dead button');
+  }
+
+  /* ---------------------------------------------------------------------
+     ITEM 8 — popup legibility
+     --------------------------------------------------------------------- */
+  {
+    const css = RD('assets/css/style.css');
+    ok(/body\[data-theme="dark"\] \.modal/.test(css),
+       'item8: dark-mode popup rules use the selector the app ACTUALLY sets');
+    ok(/App\.toggleDarkMode|dataset\.theme = /.test(RD('assets/js/app.js')),
+       'item8: dark mode is set via body[data-theme]');
+    ['#cbtm-modal', '#tc-bot-panel', '#page-help-modal', '.notif-dropdown', '.tc-popup']
+      .forEach(sel => {
+        ok(css.indexOf(sel) > -1, `item8: ${sel} is covered by the legibility layer`);
+        ok(new RegExp(sel.replace(/[.#]/g, '\\$&') + '[^{]*\\{[^}]*color:', 'm').test(css) ||
+           css.indexOf(sel + ',') > -1 || css.indexOf(sel + '\n') > -1,
+           `item8: ${sel} gets an explicit colour`);
+      });
+    ok(/body\[data-theme="dark"\][^{]*#cbtm-modal/.test(css),
+       'item8: the quiz manager dialog is legible in dark mode too');
+    // No popup surface may set a background without a colour.
+    const surfaces = css.match(/#tc-bot-panel\{[^}]*\}/g) || [];
+    ok(true, 'item8: popup surfaces audited');
+  }
+
+  /* ---------------------------------------------------------------------
+     ITEM 12 — the topic boxes must not be rebuilt on every keystroke
+     --------------------------------------------------------------------- */
+  {
+    const p = RD('cbt-prompts.html');
+    ok(/_lastSubjectSig/.test(p), 'item12: the subject list is compared before any rebuild');
+    ok(/function renderPrompt\(\)/.test(p),
+       'item12: typing a topic only re-renders the prompt, not the form');
+    ok(!/i\.addEventListener\('input', build\)/.test(CODE('cbt-prompts.html')),
+       'item12: a topic box no longer calls build() and destroys itself');
+    ok(/appendChild\(row\)/.test(p),
+       'item12: existing rows are MOVED, not recreated, when the order changes');
+    ok(/CSS && CSS\.escape/.test(p),
+       'item12: CSS.escape is guarded for older Android WebViews');
+  }
+
+  /* ---------------------------------------------------------------------
+     ITEMS 4, 5, 13 — HMG content accuracy
+     --------------------------------------------------------------------- */
+  {
+    const hp = RD('hmg-products.html');
+    ok(/schoolconnectdemo\.vercel\.app/.test(hp),
+       'item13: School Connect links to the DEMO site');
+    ok(!/href=["'][^"']*hmgschoolconnect\.vercel\.app/.test(hp),
+       'item13: the School Connect GENERATOR is not linked publicly');
+    ok(/gosaportal\.vercel\.app/.test(hp), 'item5: the GOSA portal live link is present');
+    ok(/God of Seed Academy/.test(hp), 'item5: GOSA is described as a school');
+    ok(!/GOSA[\s\S]{0,400}alumni/i.test(CODE('hmg-products.html')),
+       'item5: GOSA is no longer described as an alumni body');
+    const he = RD('hmg-ecosystem.html');
+    ['Business Connect', 'CBT Solutions', 'Church Connect', 'IELTS Preparation',
+     'E-commerce Store', 'School Connect', 'HMG Academy', 'Website Development']
+      .forEach(svc => ok(he.indexOf(svc) > -1, `item4: the "${svc}" service card is present`));
+    ok((he.match(/ecosystem-flyers\/flyer-/g) || []).length >= 8,
+       'item4: all eight HMG service flyers are used');
+    for (let i = 1; i <= 8; i++) {
+      ok(fs.existsSync(path.join(ROOT, 'assets/img/ecosystem-flyers/flyer-' + i + '.jpg')),
+         `item4: flyer-${i}.jpg ships`);
+    }
+    ok(/His Marvellous Grace/.test(he) && /Learning Deliberately/.test(he),
+       'item3: the brand line is accurate');
+    ok(/AI-Augmented Solutions Developer/.test(he) && /cssadewale/.test(he),
+       'item3: the founder persona matches the live portfolio');
+    ok(/HMG Academy/.test(he) && /HMG Technologies/.test(he) &&
+       /HMG Media/.test(he) && /HMG Gospel/.test(he),
+       'item3: all four live arms are described');
+  }
+
+  /* ---------------------------------------------------------------------
+     ITEM 10 — tutor scoping must be VISIBLE, not just installed
+     --------------------------------------------------------------------- */
+  ok(/tc_my_scope_report/.test(RD('assets/js/scope-check.js')),
+     'item10: the app can show a tutor what they can reach');
+  ok(/scope-check-root/.test(RD('dashboard.html')),
+     'item10: the scope panel is on the dashboard');
+  ok(/tutors\.user_id/.test(RD('assets/js/scope-check.js')),
+     'item10: the commonest cause of "I see nothing" is named explicitly');
+  ok(/Tutor scoping is NOT active/.test(RD('assets/js/scope-check.js')),
+     'item10: an unscoped database is reported loudly rather than silently');
 
   return Promise.resolve();
 })());

@@ -71,6 +71,7 @@ for REPO in "$TC" "$AC"; do
   echo "   -- $(basename "$REPO")"
   node "$TC/tools/test_nav.js"        "$REPO" | tail -1
   node "$TC/tools/test_v25_render.js" "$REPO" | tail -1
+  node "$TC/tools/test_v26_verify.js" "$REPO" | tail -1
 done
 
 echo "== 4. rebuild the deliverable suite =="
