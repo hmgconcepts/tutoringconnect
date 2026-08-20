@@ -59,6 +59,14 @@ console.log('[Tutoring Connect] config —', window.PRACTICE.name);
     'assets/js/nav-model.js','assets/js/nav-model.json','assets/js/nav.js',
     /* V25 — entry desks, certificate studio, quiz lifecycle, free classes. */
     'assets/js/desk-kit.js','assets/js/cert-studio.js','assets/js/cbt-manage.js','assets/js/free-classes.js',
+    /* V26 — tutor marking of open responses, and the access self-check. */
+    'assets/js/cbt-marking.js','assets/js/scope-check.js',
+    /* V26 — the HMG services flyers used by hmg-ecosystem.html. Without these
+       the ecosystem page ships with eight broken images. */
+    'assets/img/ecosystem-flyers/flyer-1.jpg','assets/img/ecosystem-flyers/flyer-2.jpg',
+    'assets/img/ecosystem-flyers/flyer-3.jpg','assets/img/ecosystem-flyers/flyer-4.jpg',
+    'assets/img/ecosystem-flyers/flyer-5.jpg','assets/img/ecosystem-flyers/flyer-6.jpg',
+    'assets/img/ecosystem-flyers/flyer-7.jpg','assets/img/ecosystem-flyers/flyer-8.jpg',
     'assets/js/cbt.js','assets/js/cbt-types.js','assets/js/proctor.js','assets/js/drive-sync.js','assets/js/data-portability.js',
     'assets/js/bookings-engine.js','assets/js/catalog.js','assets/js/license.js',
     'assets/js/media.js','assets/js/brand.js','assets/js/notifications.js','assets/js/pwa-install.js',
@@ -75,6 +83,7 @@ console.log('[Tutoring Connect] config —', window.PRACTICE.name);
     'database/v18-security-hardening.sql','database/v19-revenue-and-security.sql',
     'database/v20-cbt-2fa-polls.sql','database/v22-cbt-results-audit.sql',
     'database/v24-tutor-scoping.sql','database/v25-desks-lifecycle-free-classes.sql',
+    'database/v26-tutor-marking-and-selftest.sql',
     'DEPLOYMENT-GUIDE.md','README.md','FEATURE-CATALOG.md','SUPABASE_FREE_TIER_PROTECTION.md',
     'docs/GOOGLE-DRIVE-SYNC-GUIDE.md','docs/ONBOARDING-GUIDE.md','docs/INSIGHTS-METHODOLOGY.md',
     'manifest.json','sw.js','robots.txt','sitemap.xml','_headers','.nojekyll',
