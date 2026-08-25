@@ -56,22 +56,22 @@ Product of HMG Technologies, a subsidiary of HMG Concepts
 (His Marvellous Grace). Founder: Adewale Samson Adeagbo.
 EOF
 
-rm -f /home/user/tutoring-connect.zip
-( cd "$STAGE" && zip -r -q /home/user/tutoring-connect.zip \
+rm -f /home/user/deliverables/tutoring-connect.zip
+( cd "$STAGE" && zip -r -q /home/user/deliverables/tutoring-connect.zip \
   tutoring-connect-generator.zip adewale-classroom.zip README-RELEASE.txt )
 
-cp "$STAGE/tutoring-connect-generator.zip" /home/user/tutoring-connect-generator.zip
-cp "$STAGE/adewale-classroom.zip" /home/user/adewale-classroom.zip
+cp "$STAGE/tutoring-connect-generator.zip" /home/user/deliverables/tutoring-connect-generator.zip
+cp "$STAGE/adewale-classroom.zip" /home/user/deliverables/adewale-classroom.zip
 
-echo "PARENT $(ls -lh /home/user/tutoring-connect.zip | awk '{print $5}')"
-echo "GEN    $(ls -lh /home/user/tutoring-connect-generator.zip | awk '{print $5}')"
-echo "ADC    $(ls -lh /home/user/adewale-classroom.zip | awk '{print $5}')"
+echo "PARENT $(ls -lh /home/user/deliverables/tutoring-connect.zip | awk '{print $5}')"
+echo "GEN    $(ls -lh /home/user/deliverables/tutoring-connect-generator.zip | awk '{print $5}')"
+echo "ADC    $(ls -lh /home/user/deliverables/adewale-classroom.zip | awk '{print $5}')"
 echo "--- parent listing ---"
-unzip -l /home/user/tutoring-connect.zip
+unzip -l /home/user/deliverables/tutoring-connect.zip
 echo "--- generator has builder? ---"
-unzip -l /home/user/tutoring-connect-generator.zip | grep -E 'builder.html|index.html' | head
+unzip -l /home/user/deliverables/tutoring-connect-generator.zip | grep -E 'builder.html|index.html' | head
 echo "--- classroom has builder? (should be empty) ---"
-unzip -l /home/user/adewale-classroom.zip | grep -E 'builder.html|generator.js' || echo "(none — correct)"
+unzip -l /home/user/deliverables/adewale-classroom.zip | grep -E 'builder.html|generator.js' || echo "(none — correct)"
 echo "--- classroom index is client ---"
-unzip -p /home/user/adewale-classroom.zip adewale-classroom/index.html | grep -m1 '<title>'
+unzip -p /home/user/deliverables/adewale-classroom.zip adewale-classroom/index.html | grep -m1 '<title>'
 rm -rf "$STAGE"

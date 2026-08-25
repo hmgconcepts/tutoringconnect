@@ -1,19 +1,15 @@
 #!/usr/bin/env bash
-# =====================================================================
-# sync_all.sh — the every-turn synchronisation procedure
-# ---------------------------------------------------------------------
-# 1. Mirror the generator (tutoringconnect) onto the generated client site
-#    (adewaleclassroom), EXCLUDING the files that legitimately differ.
-# 2. Strip generator-only files out of the client site.
-# 3. Re-bake the GOSA / HMG house identity into every client page.
-# 4. Rebuild the deliverable suite folder and re-zip it.
-# Idempotent: safe to run as many times as you like.
-# =====================================================================
+# sync_all.sh — keep generator and generated client in lockstep, then verify.
 set -euo pipefail
-
-TC=/home/user/fixed/tutoringconnect
-AC=/home/user/fixed/adewaleclassroom
-SUITE="/home/user/tutoring connect suite"
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# Default: generator is this repo; client is sibling adewaleclassroom-fixed or adewaleclassroom
+TC="${TC:-$ROOT}"
+if [ -z "${AC:-}" ]; then
+  if [ -d "$ROOT/../adewaleclassroom-fixed" ]; then AC="$ROOT/../adewaleclassroom-fixed"
+  elif [ -d "$ROOT/../adewaleclassroom" ]; then AC="$ROOT/../adewaleclassroom"
+  else AC="$ROOT/../adewaleclassroom"; fi
+fi
+SUITE="${SUITE:-/home/user/deliverables/tutoring-connect-suite}"
 ZIP=/home/user/deliverables/tutoring-connect-suite.zip
 
 echo "== 1. mirror generator -> generated site =="
@@ -25,9 +21,9 @@ mkdir -p "$AC/tools"
 cp -f "$TC/tools/keepalive.gs" "$AC/tools/keepalive.gs" 2>/dev/null || true
 
 echo "== 3. re-bake the HMG / GOSA house identity into every client page =="
-python3 - <<'PY'
+AC="$AC" python3 - <<'PY'
 import os, re
-AC = '/home/user/fixed/adewaleclassroom'
+AC = os.environ['AC']
 BRAND = ("<style id=\"tc-brand\">:root{--primary:#0506ae;--primary-dark:#0506ae;"
          "--primary-light:#964eec;--accent:#964eec;"
          "--gradient:linear-gradient(135deg,#0506ae,#964eec);"

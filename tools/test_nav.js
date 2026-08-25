@@ -3,7 +3,7 @@
    generated client site before packaging, because the suite used to be
    zipped with nothing ever having been executed against the client copy. */
 const {JSDOM}=require('jsdom'); const fs=require('fs');
-const R=(process.argv[2]||'/home/user/fixed/tutoringconnect').replace(/\/$/,'')+'/';
+const R=(process.argv[2]||require('path').resolve(__dirname,'..')).replace(/\/$/,'')+'/';
 function load(page, role){
   const dom=new JSDOM(fs.readFileSync(R+page,'utf8'),{runScripts:'outside-only',url:'https://x.test/'+page});
   const w=dom.window;

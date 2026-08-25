@@ -2,11 +2,11 @@
    Verifies the V26 fixes in a BUILT repo rather than in the source tree,
    using the three CSV files the user actually reported the bugs with. */
 const {JSDOM}=require('jsdom'),fs=require('fs');
-const R=(process.argv[2]||'/home/user/fixed/adewaleclassroom')+'/';
+const R=(process.argv[2]||require('path').resolve(__dirname,'..'))+'/';
 let pass=0,fail=0; const ok=(c,m)=>{c?pass++:(fail++,console.log('FAIL: '+m));};
 
 // ---- item 9 against the real CSVs, in the CLIENT build ----
-const fx='/home/user/fixed/tutoringconnect/tools/fixtures-csv/';
+const fx=require('path').resolve(__dirname,'fixtures-csv')+'/';
 for(const f of fs.readdirSync(fx)){
   const dom=new JSDOM('<div id=root></div>',{runScripts:'outside-only',url:'https://x.test/'});
   const w=dom.window;

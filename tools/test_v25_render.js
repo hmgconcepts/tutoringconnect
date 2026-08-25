@@ -3,7 +3,7 @@
    generated client site before packaging, because the suite used to be
    zipped with nothing ever having been executed against the client copy. */
 const {JSDOM}=require('jsdom'); const fs=require('fs');
-const R=(process.argv[2]||'/home/user/fixed/tutoringconnect').replace(/\/$/,'')+'/';
+const R=(process.argv[2]||require('path').resolve(__dirname,'..')).replace(/\/$/,'')+'/';
 let pass=0,fail=0; const ok=(c,m)=>{c?pass++:(fail++,console.log('FAIL: '+m));};
 
 async function page(f, role, mount){
