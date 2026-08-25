@@ -49,6 +49,17 @@ console.log('[Tutoring Connect] config —', window.PRACTICE.name);
     /* V25 — free / outreach classes. free-register.html is PUBLIC and is
        what a student opens from a WhatsApp registration link. */
     'free-classes.html','free-register.html',
+    /* V27 — public blog. blog-post.html is the reader (reached from cards,
+       not the menu); blog-manage.html is the staff editor. */
+    'blog.html','blog-post.html','blog-manage.html',
+    /* V27 — documents builder + contracts register. */
+    'contracts.html','assets/js/document-builder.js',
+    /* V27 — flyer studio + audit trail. */
+    'assets/js/flyer-maker.js','assets/js/activity-log.js','assets/js/account-link.js',
+    /* V28 — roles & status manager + ops KPI strips + document/flyer studios. */
+    'assets/js/status-manager.js','assets/js/ops-desk.js',
+    /* V29 — social registration links for paid & free classes. */
+    'class-links.html','class-register.html','assets/js/class-links.js','assets/js/class-register.js',
     'assets/css/style.css',
     'assets/js/app.js','assets/js/rbac.js','assets/js/legibility.js','assets/js/crud.js','assets/js/insights.js','assets/js/super.js',
     /* V25 — the navigation model and its renderer. If either of these is
@@ -84,6 +95,11 @@ console.log('[Tutoring Connect] config —', window.PRACTICE.name);
     'database/v20-cbt-2fa-polls.sql','database/v22-cbt-results-audit.sql',
     'database/v24-tutor-scoping.sql','database/v25-desks-lifecycle-free-classes.sql',
     'database/v26-tutor-marking-and-selftest.sql',
+    'database/v27-rls-recursion-blog-documents.sql',
+    'database/v28-admin-and-ops-enrichment.sql',
+    'database/v29-social-registration-links.sql',
+    /* V27 — blog engine + account linking + review lookup. */
+    'assets/js/blog.js',
     'DEPLOYMENT-GUIDE.md','README.md','FEATURE-CATALOG.md','SUPABASE_FREE_TIER_PROTECTION.md',
     'docs/GOOGLE-DRIVE-SYNC-GUIDE.md','docs/ONBOARDING-GUIDE.md','docs/INSIGHTS-METHODOLOGY.md',
     'manifest.json','sw.js','robots.txt','sitemap.xml','_headers','.nojekyll',
