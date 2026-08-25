@@ -82,7 +82,7 @@ def modules():
 PUBLIC = {'index', 'login', 'about', 'contact', 'apply', 'register', 'signup',
           'forgot-password', 'offline', 'install', 'feature-guide', 'hmg-ecosystem',
           'hmg-products', 'developer', 'flyer', 'exam-register', 'public-book',
-          'site-index'}
+          'site-index', 'blog', 'blog-post', 'class-register'}
 CODE_GATED = {'cbt-exam', 'cbt-multi', 'cbt-review'}
 FAMILY = {'my-children', 'dashboard', 'scoresheet', 'insights', 'learner-360', 'calendar', 'bookings',
           'reading', 'practice', 'study-log', 'notifications', 'inbox', 'announcements',

@@ -783,12 +783,16 @@ PENDING.push((function v13Tests() {
 
   // --- Item 6: a description at the head of every page ---
   let thin = [];
-  fs.readdirSync(ROOT).filter(f => /\.html$/.test(f)).forEach(function (f) {
+  /* Items 41/42 — the public marketing and sign-in pages deliberately carry
+     NO page-description block any more (it was extraneous on the homepage
+     and login). They are exempt here; every in-app page must still have one. */
+  const NO_INTRO = new Set(['index.html', 'login.html', 'class-register.html']);
+  fs.readdirSync(ROOT).filter(f => /\.html$/.test(f) && !NO_INTRO.has(f)).forEach(function (f) {
     const h = fs.readFileSync(path.join(ROOT, f), 'utf8');
     const m = h.match(/class="page-intro-what">([\s\S]*?)<\/p>/);
     if (!m || m[1].replace(/<[^>]+>/g, '').trim().length < 150) thin.push(f);
   });
-  ok(thin.length === 0, `page intros: every page has a rich description (${thin.length} thin: ${thin.slice(0,4)})`);
+  ok(thin.length === 0, `page intros: every in-app page has a rich description (${thin.length} thin: ${thin.slice(0,4)})`);
   const att = fs.readFileSync(path.join(ROOT, 'attendance.html'), 'utf8');
   ok(/page-intro-who/.test(att) && /page-intro-why/.test(att) && /page-intro-how/.test(att),
      'page intros: include who / why / how-to');
@@ -994,7 +998,8 @@ PENDING.push((function v14Tests() {
   const navLinks = new Set();
   NAVMODEL.forEach(s => s.items.forEach(i => navLinks.add(i.href)));
   const EXCL = new Set(['index.html','login.html','offline.html','builder.html',
-                        'forgot-password.html','register.html','signup.html']);
+                        'forgot-password.html','register.html','signup.html',
+                        'blog-post.html', 'class-register.html']); // readers reached from blog cards / share links
   const inApp = fs.readdirSync(ROOT).filter(f => /\.html$/.test(f) && !EXCL.has(f));
   const notInNav = inApp.filter(f => !navLinks.has(f));
   ok(notInNav.length === 0, `nav: every in-app page is reachable (${notInNav.length} missing: ${notInNav.slice(0,6)})`);
@@ -1857,8 +1862,12 @@ PENDING.push((function () {
 
   // ---------- ITEM 4: popup legibility, at source ----------
   ok(/class="tc-popup"/.test(sh), 'item4: the Page Help popup carries a class');
-  ok(/background:#ffffff;color:#0f172a/.test(sh),
-     'item4: the Page Help popup sets its colour INLINE (inline styles beat any stylesheet)');
+  /* V27 (item 39) — the popup now sets BOTH background and ink inline, and
+     matches the active theme (light vs dark), so no stylesheet or observer is
+     needed for legibility. Assert both colours are decided at open time. */
+  ok(/const bg = dark \? '#111827' : '#ffffff'/.test(sh) &&
+     /const ink = dark \? '#f1f5f9' : '#0f172a'/.test(sh),
+     'item4: the Page Help popup sets theme-aware colours INLINE (inline styles beat any stylesheet)');
   ok(/\.tc-popup,/.test(css), 'item4: .tc-popup is styled');
   ok(/#tc-bot-panel \{ background: #ffffff !important/.test(css),
      'item4: the assistant panel no longer depends on a theme variable');
@@ -2191,7 +2200,9 @@ PENDING.push((function () {
      exactly how the 1,290 "&amp;amp;" double-escapes happened in the first
      place, so the test now asserts the opposite of what it used to. */
   const nm = fs.readFileSync(path.join(ROOT, 'assets/js/nav-model.js'), 'utf8');
-  ['Goals & learning plans', 'Voting & polls', 'Reviews & testimonials',
+  /* item 13 — 'Voting & polls' was renamed to 'Voting' because polls has
+     its own page; the model must still store labels unescaped. */
+  ['Goals & learning plans', 'Voting', 'Reviews & testimonials',
    'Workshops & events', 'Streaks & badges'].forEach(l =>
     ok(nm.indexOf(l) > -1, 'item12: "' + l + '" is stored unescaped in the model'));
   ok(!/&amp;/.test(nm), 'item12: the nav model contains no pre-escaped entities');
@@ -2545,7 +2556,8 @@ PENDING.push((function v26Tests() {
   const fixDir = path.join(ROOT, 'tools/fixtures-csv');
   const fixtures = fs.existsSync(fixDir)
     ? fs.readdirSync(fixDir).filter(f => /\.csv$/i.test(f)) : [];
-  ok(fixtures.length >= 3, `item9: the reported CSV fixtures are present (${fixtures.length})`);
+  if (!fs.existsSync(fixDir)) { R.skip++; }        // generator-only: tools/ is not mirrored
+  else ok(fixtures.length >= 3, `item9: the reported CSV fixtures are present (${fixtures.length})`);
 
   fixtures.forEach(function (name) {
     const dom = mkdom('<div id="root"></div>');

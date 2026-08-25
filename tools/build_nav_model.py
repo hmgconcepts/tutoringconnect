@@ -205,17 +205,20 @@ SECTIONS = [
         ("broadcasts",      "broadcasts.html",      "Result broadcasts",   "📡", "staff"),
         ("forum",           "forum.html",           "Group forum",         "🗣️", "user"),
         ("polls",           "polls.html",           "Polls",               "📊", "staff"),
-        ("voting",          "voting.html",          "Voting & polls",      "🗳️", "user"),
+        ("voting",          "voting.html",          "Voting",              "🗳️", "user"),
         ("surveys",         "surveys.html",         "Surveys & CSAT",      "📝", "user"),
         ("complaints",      "complaints.html",      "Complaints",          "❗", "user"),
         ("helpdesk",        "helpdesk.html",        "Help desk",           "🎧", "user"),
         ("parent_meetings", "parent-meetings.html", "Parent conferences",  "🤝", "staff"),
         ("gallery",         "gallery.html",         "Gallery",             "🖼️", "staff"),
         ("reviews",         "reviews.html",         "Reviews & testimonials", "⭐", "staff"),
+        ("blog",            "blog.html",            "Blog",                  "📝", "public"),
+        ("blog_manage",     "blog-manage.html",     "Blog manager",          "✍️", "staff"),
     ]),
 
     ("✉️", "Enrolment & growth", [
         ("apply",             "apply.html",             "Request a place",       "✉️", "public"),
+        ("class_links",       "class-links.html",        "Class registration links", "🔗", "staff"),
         ("application_links", "application-links.html", "Application links",     "🔗", "admin"),
         ("inquiries",         "inquiries.html",         "Inquiries",             "📨", "staff"),
         ("trials",            "trials.html",            "Trial lessons",         "🎬", "staff"),
@@ -225,7 +228,8 @@ SECTIONS = [
     ]),
 
     ("🗂️", "Records & compliance", [
-        ("documents",       "documents.html",       "Contracts & consent",    "📃", "staff"),
+        ("documents",       "documents.html",       "Documents",              "📃", "staff"),
+        ("contracts",       "contracts.html",       "Contracts & consent",    "✍️", "staff"),
         ("policies",        "policies.html",        "Policies",               "📕", "staff"),
         ("compliance",      "compliance.html",      "Compliance",             "☑️", "admin"),
         ("safeguarding",    "safeguarding.html",    "Safeguarding log",       "🛡️", "admin"),
@@ -292,6 +296,8 @@ def build():
         "offline.html",          # shown by the service worker
         "builder.html",          # generator-only, never in a generated studio
         "cbt-exam.html",         # in the menu, listed here only for clarity
+        "blog-post.html",        # a reader page, reached from blog cards / links
+        "class-register.html",   # a public registration page, reached from a share link
     }
     all_pages = {f for f in os.listdir(ROOT) if f.endswith(".html")}
     orphans = sorted(all_pages - set(items) - NOT_IN_MENU)

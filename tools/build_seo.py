@@ -48,6 +48,12 @@ PUBLIC_PAGES = [
     # "free JAMB physics class" should be able to land on it, and the page
     # itself refuses to show anything without a valid registration token.
     'free-register.html',
+    # V27 — the blog is the studio's content front door. The listing and every
+    # published post are indexable; the staff editor (blog-manage.html) stays
+    # private.
+    'blog.html', 'blog-post.html',
+    # V29 — the public class-registration landing page is deliberately indexable.
+    'class-register.html',
 ]
 
 # Generator-only pages. These must never appear in a CLIENT sitemap.
