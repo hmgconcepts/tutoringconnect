@@ -9,6 +9,135 @@ const Generator = {
     if (!res.ok) return '';
     return res.text();
   },
+
+  /* V36 — pack Classroom Deck runtime stamped with THIS client's brand */
+  async packClassDeck(zip, cfg) {
+    const brandName = String((cfg && (cfg.name || cfg.studioName)) || 'Classroom Studio');
+    const shortName = String((cfg && (cfg.shortName || cfg.short)) || brandName);
+    const primary = (cfg && cfg.theme && cfg.theme.primary) || '#0506ae';
+    const accent = (cfg && cfg.theme && cfg.theme.accent) || '#964eec';
+    const email = (cfg && cfg.email) || '';
+    const siteUrl = (cfg && cfg.siteUrl) || '';
+    const logoUrl = (cfg && (cfg.logoUrl || cfg.logo)) || 'assets/img/logo.svg';
+    const phone = (cfg && cfg.phone) || '';
+    const wa = phone
+      ? ('https://wa.me/' + String(phone).replace(/\D/g, '').replace(/^0/, '234'))
+      : 'https://wa.me/2348100866322';
+    const logoRel = String(logoUrl).indexOf('http') === 0
+      ? logoUrl
+      : ('../' + String(logoUrl).replace(/^\//, ''));
+
+    const deckConfig = [
+      '/* ' + brandName.replace(/\*\//g, '') + ' — Classroom Deck (generated) */',
+      'window.CLASSDECK = window.CLASSDECK || {};',
+      'window.CLASSDECK.BRAND = {',
+      '  productName: ' + JSON.stringify(brandName + ' DECK') + ',',
+      '  shortName: ' + JSON.stringify(shortName + ' Deck') + ',',
+      '  studioName: ' + JSON.stringify(brandName) + ',',
+      '  tagline: ' + JSON.stringify('Teach live inside ' + brandName + '.') + ',',
+      '  founder: "Adewale Samson Adeagbo",',
+      '  ecosystem: "HMG Concepts Ecosystem",',
+      '  email: ' + JSON.stringify(email) + ',',
+      '  whatsapp: ' + JSON.stringify(wa) + ',',
+      '  siteUrl: ' + JSON.stringify(siteUrl) + ',',
+      '  parentPortal: "../index.html",',
+      '  portalSessions: "../sessions.html",',
+      '  portalCalendar: "../calendar.html",',
+      '  portalLogin: "../login.html",',
+      '  logoUrl: ' + JSON.stringify(logoRel) + ',',
+      '  primary: ' + JSON.stringify(primary) + ',',
+      '  accent: ' + JSON.stringify(accent) + ',',
+      '  requirePortalSession: false,',
+      '  studentJoinFree: true',
+      '};',
+      'window.CD_CONFIG = Object.assign({}, window.CD_CONFIG || {}, window.CLASSDECK.BRAND);',
+      'window.APP_NAME = window.CLASSDECK.BRAND.productName;',
+      'window.SCHOOL_NAME = window.CLASSDECK.BRAND.studioName;',
+      'window.PRACTICE = window.PRACTICE || {',
+      '  name: window.CLASSDECK.BRAND.studioName,',
+      '  shortName: window.CLASSDECK.BRAND.shortName,',
+      '  theme: { primary: window.CLASSDECK.BRAND.primary, accent: window.CLASSDECK.BRAND.accent },',
+      '  logoUrl: window.CLASSDECK.BRAND.logoUrl, email: window.CLASSDECK.BRAND.email, siteUrl: window.CLASSDECK.BRAND.siteUrl',
+      '};',
+      'console.log("[Classroom Deck] branded for", window.CLASSDECK.BRAND.studioName);',
+      ''
+    ].join('\\n');
+
+    const deckFiles = [
+      'index.html','teach.html','join.html','stream.html','classroom.html','admin.html',
+      'cbt.html','parent.html','community.html','generate.html','404.html',
+      'css/style.css','manifest.json','manifest.webmanifest','sw.js','version.json','TC-INTEGRATION.md',
+      'js/common.js','js/config.js','js/portal-bridge.js','js/teach-toolbar-fix.js',
+      'js/license.js','js/whiteboard.js','js/webcast.js','js/toolkit.js',
+      'js/toolkit-data.js','js/toolkit-data2.js','js/toolkit-data3.js','js/toolkit-ext.js',
+      'js/security-config.js','js/auth.js','js/rtc.js','js/teach.js','js/enhancements.js',
+      'js/ecosystem-branding.js','js/enterprise-enhanced.js','js/join.js',
+      'vendor/peerjs.min.js','vendor/pdf.min.js','vendor/pdf.worker.min.js','vendor/qrcode.min.js',
+      'assets/icon-96.png','assets/icon-192.png','assets/icon-512.png','assets/apple-touch-icon.png'
+    ];
+
+    const brandText = (txt) => {
+      if (typeof txt !== 'string') return txt;
+      let s = txt;
+      const bn = brandName;
+      s = s.replace(/ADEWALE CLASSROOM DECK/g, bn + ' DECK');
+      s = s.replace(/ADEWALE CLASSROOM/g, bn);
+      s = s.replace(/ADEWALE&nbsp;CLASSROOM&nbsp;DECK/g, bn.replace(/ /g, '&nbsp;') + '&nbsp;DECK');
+      s = s.replace(/ADEWALE&nbsp;CLASSROOM/g, bn.replace(/ /g, '&nbsp;'));
+      s = s.replace(/HMG ACADEMY CLASS DECK/g, bn + ' DECK');
+      s = s.replace(/HMG ACADEMY/g, bn);
+      return s;
+    };
+
+    for (const rel of deckFiles) {
+      try {
+        const res = await fetch('classdeck/' + rel, { cache: 'no-store' });
+        if (!res.ok) continue;
+        if (/\\.(png|jpe?g|gif|webp|ico)$/i.test(rel)) {
+          zip.file('classdeck/' + rel, await res.arrayBuffer());
+          continue;
+        }
+        let txt = await res.text();
+        if (rel === 'js/config.js') txt = deckConfig;
+        else txt = brandText(txt);
+        if (rel === 'teach.html') {
+          if (txt.indexOf('teach-toolbar-fix.js') === -1) {
+            txt = txt.replace('js/teach.js"></script>',
+              'js/teach.js"></script>\\n<script src="js/teach-toolbar-fix.js"></script>');
+          }
+          if (txt.indexOf('portal-bridge.js') === -1) {
+            txt = txt.replace('js/config.js"></script>',
+              'js/config.js"></script>\\n<script src="js/portal-bridge.js"></script>');
+          }
+        }
+        zip.file('classdeck/' + rel, txt);
+      } catch (e) { /* skip */ }
+    }
+
+    // Client hub
+    const esc = (s) => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const hub = '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"/>' +
+      '<meta name="viewport" content="width=device-width,initial-scale=1"/>' +
+      '<title>' + esc(brandName) + ' DECK</title>' +
+      '<link rel="stylesheet" href="assets/css/style.css"/>' +
+      '<style>body{font-family:system-ui,sans-serif;margin:0;background:#f8fafc;color:#0f172a}' +
+      '.wrap{max-width:960px;margin:0 auto;padding:28px 16px}' +
+      '.hero{background:linear-gradient(135deg,' + primary + ',' + accent + ');color:#fff;border-radius:16px;padding:28px;margin-bottom:18px}' +
+      '.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}' +
+      'a.card{display:block;background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:16px;text-decoration:none;color:inherit}' +
+      '.btn{display:inline-block;margin-top:10px;background:' + primary + ';color:#fff;padding:8px 12px;border-radius:10px;font-weight:700;font-size:13px}</style></head><body><div class="wrap">' +
+      '<div class="hero"><div style="font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;opacity:.9">Live teaching</div>' +
+      '<h1 style="margin:6px 0 8px;font-size:1.8rem">' + esc(brandName) + ' DECK</h1>' +
+      '<p style="margin:0;max-width:40rem;line-height:1.5;opacity:.95">Split-screen teach, live classroom, Meet companion, free learner join. Uses your ' + esc(brandName) + ' portal — no second login.</p></div>' +
+      '<div class="grid">' +
+      '<a class="card" href="classdeck/teach.html"><b>Teacher Studio</b><div style="color:#64748b;font-size:13px;margin-top:6px">Whiteboard, toolkit, go-live, roster.</div><span class="btn">Open</span></a>' +
+      '<a class="card" href="classdeck/teach.html?meet=1"><b>Meet / Zoom companion</b><div style="color:#64748b;font-size:13px;margin-top:6px">Share screen; teach from one app.</div><span class="btn">Open</span></a>' +
+      '<a class="card" href="classdeck/join.html"><b>Learner join</b><div style="color:#64748b;font-size:13px;margin-top:6px">Free room code — no account.</div><span class="btn">Open</span></a>' +
+      '<a class="card" href="sessions.html"><b>Sessions</b><div style="color:#64748b;font-size:13px;margin-top:6px">Paste join URL into Meeting URL.</div><span class="btn">Open</span></a>' +
+      '</div><p style="margin-top:18px;color:#64748b;font-size:13px">' + esc(brandName) + ' · HMG Concepts Ecosystem</p></div></body></html>';
+    zip.file('class-deck.html', hub);
+  },
+
   configJS(cfg) {
     const theme = cfg.theme || { id: 'hmg', primary: '#0506ae', accent: '#964eec' };
     return `window.TC = window.TC || {};
@@ -208,6 +337,7 @@ console.log('[Tutoring Connect] config —', window.PRACTICE.name);
     const clientIndex = await this.load('site-index.html');
     if (clientIndex) zip.file('index.html', clientIndex);
     zip.file('assets/js/config.js', this.configJS(cfg));
+    try { await this.packClassDeck(zip, cfg); } catch (e) { console.warn('[generator] classdeck', e); }
     zip.file('PRACTICE.json', JSON.stringify(cfg, null, 2));
 
     /* V17 — emit a licence seed so the DATABASE agrees with the wizard.
