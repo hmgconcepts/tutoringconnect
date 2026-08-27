@@ -55,7 +55,7 @@ console.log('[Tutoring Connect] config —', window.PRACTICE.name);
     /* V27 — documents builder + contracts register. */
     'contracts.html','assets/js/document-builder.js',
     /* V27 — flyer studio + audit trail. */
-    'assets/js/flyer-maker.js','assets/js/activity-log.js','assets/js/account-link.js',
+    'assets/js/flyer-maker.js','assets/js/activity-log.js','assets/js/account-link.js','assets/js/people-link-desk.js','assets/js/directory-desk.js',
     /* V28 — roles & status manager + ops KPI strips + document/flyer studios. */
     'assets/js/status-manager.js','assets/js/ops-desk.js',
     /* V29 — social registration links for paid & free classes. */
@@ -137,7 +137,7 @@ console.log('[Tutoring Connect] config —', window.PRACTICE.name);
     'site-index.html','sow.html','status-manager.html','storage.html','stream.html',
     'study-log.html','subjects.html','substitutions.html','surveys.html','timezones.html',
     'transcripts.html','trials.html','tutors.html','value-added.html','voting.html',
-    'waitlist.html','whiteboard.html','family-links.html','my-children.html'
+    'waitlist.html','whiteboard.html','class-deck.html','family-links.html','my-children.html'
   ],
   ALWAYS_PAGES: [
     'engagements.html','learners.html','insights.html','learner-360.html','calendar.html',
