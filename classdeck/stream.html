@@ -26,6 +26,7 @@
 </script>
 <script src="js/config.js"></script>
 <script src="js/portal-bridge.js"></script>
+<script src="js/common.js"></script>
 <script src="js/auth.js"></script>
 </head>
 <body>
@@ -105,7 +106,8 @@
 </div>
 <script>
 "use strict";
-const $=(s,r=document)=>r.querySelector(s);
+/* V38: $ now comes from js/common.js, which this page loads for js/auth.js.
+   Re-declaring it here threw "Identifier '$' has already been declared". */
 const base=location.href.replace(/stream\.html.*$/,"");
 $("#openTeach").onclick=()=>window.open(base+"teach.html","_blank","noopener");
 $("#copyRelay").onclick=async()=>{const txt="https://YOUR-RELAY-DOMAIN/rtc/v1/whip/?app=live&stream=classdeck"; try{await navigator.clipboard.writeText(txt); alert("Copied: "+txt);}catch{prompt("Copy WHIP endpoint pattern",txt)}};
