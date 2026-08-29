@@ -1,10 +1,10 @@
 {
   "name": "Tutoring Connect",
   "short_name": "TutorConnect",
-  "start_url": "dashboard.html",
+  "start_url": "index.html",
   "display": "standalone",
-  "background_color": "#f7f4ef",
-  "theme_color": "#134e4a",
+  "background_color": "#f8fafc",
+  "theme_color": "#0506ae",
   "icons": [
     { "src": "assets/img/logo.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
     { "src": "assets/img/logo.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
