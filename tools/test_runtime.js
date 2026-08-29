@@ -2508,15 +2508,20 @@ PENDING.push((function v25Tests() {
   // ---- item 23: the schema registry reports the truth --------------------
   const lastReg = cs.lastIndexOf('insert into public.tc_schema_registry');
   /* Do not hard-code the version here — that just moves the maintenance
-     problem. Assert the INVARIANT: the last upsert must name the highest
-     version that appears anywhere in the file. */
-  const allVers = [...cs.matchAll(/values \(1, '(V\d+)'/g)].map(m => m[1]);
-  const highest = allVers.map(v => parseInt(v.slice(1), 10)).sort((a, b) => b - a)[0];
-  ok(cs.slice(lastReg, lastReg + 140).indexOf("'V" + highest + "'") > -1,
-     `item23: the LAST registry upsert names the highest version (V${highest})`);
+     problem. V37+ stamps the registry from public.tc_schema_expected()
+     instead of a literal, so drift cannot re-appear. Assert the two real
+     invariants instead of grepping for a literal version string. */
   const after = cs.slice(lastReg + 10);
   ok(!/insert into public\.tc_schema_registry/.test(after),
      'item23: no stale registry upsert runs after the current one');
+  ok(cs.slice(lastReg, lastReg + 200).indexOf('public.tc_schema_expected()') > -1,
+     'item23: the LAST registry upsert stamps from tc_schema_expected()');
+  const allVers = [...cs.matchAll(/values \(1, '(V\d+)'/g)].map(m => parseInt(m[1].slice(1), 10));
+  const highest = allVers.length ? Math.max(...allVers) : 0;
+  const expMatches = [...cs.matchAll(/select '(V\d+)'::text/g)];
+  const expected = expMatches.length ? parseInt(expMatches[expMatches.length - 1][1].slice(1), 10) : 0;
+  ok(expected >= highest,
+     `item23: tc_schema_expected() (V${expected}) is not behind the highest literal version (V${highest})`);
 
   /* V26 — the file must END by reloading the PostgREST schema cache, or a
      freshly created function stays invisible to the API and reports as
