@@ -18,7 +18,7 @@ window.PRACTICE = {
   timezone: 'Africa/Lagos',
   currency: '₦',
   logoExt: 'svg',
-  logoUrl: 'assets/img/logo.svg',
+  logoUrl: 'assets/img/logo.png',
   socials: {
     facebook: '',
     instagram: '',
