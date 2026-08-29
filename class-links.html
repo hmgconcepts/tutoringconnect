@@ -88,6 +88,7 @@
 <script src="assets/js/ux-enhance.js" defer></script>
 <script src="assets/js/class-links.js"></script>
 <script src="assets/js/ops-desk.js"></script>
+</head>
 <body>
 <div class="app-layout" data-require-role="any" id="app-layout">
   <aside class="app-sidebar" id="app-sidebar">
@@ -116,59 +117,9 @@
         <p class="page-intro-rel"><b>Related:</b> <a href="free-classes.html">free classes</a> · <a href="class-register.html">public registration page</a> · <a href="application-links.html">application links</a> · <a href="inquiries.html">inquiries</a> · <a href="public-book.html">public self-booking</a></p>
       </section>
       <div id="class-links-root"></div>
-    </main></main>
+    </main>
   </div>
 </div>
 <div id="toast-container" class="toast-container"></div>
-<script>
-
-document.addEventListener('DOMContentLoaded', () => {
-  const mods = (window.TC && TC.MODULES) || [];
-  const root = document.getElementById('guide-root');
-  const q = document.getElementById('fg-q');
-  const role = document.getElementById('fg-role');
-  const count = document.getElementById('fg-count');
-  /* A page belongs to a role if RBAC lets it open. Public pages are open to
-     every role; admin pages only to admin. */
-  function roleFor(m) {
-    if (!window.RBAC || !window.App) return '';
-    try { return RBAC.level(m.file, 'admin') !== 'none' ? 'admin' : ''; } catch (_) { return ''; }
-  }
-  function draw() {
-    const query = (q.value || '').toLowerCase();
-    const r = role.value;
-    const groups = {};
-    let shown = 0;
-    mods.forEach(m => {
-      if (query && !(m.name + ' ' + (m.desc || '') + ' ' + m.group).toLowerCase().includes(query)) return;
-      if (r && !(m.group || '').toLowerCase().includes(r === 'public' ? 'public' : '') &&
-          !String(m.flag || '').includes(r === 'admin' ? 'admin' : '')) {
-        /* role filter fallback: match against a small audience map */
-        const AUD = { admin: ['Admin', 'Administration', 'Governance'], tutor: ['Teaching', 'People', 'Scheduling', 'Quizzes', 'Resources'], parent: ['Money', 'Communication'], student: ['Learning', 'Progress'], public: ['Public', 'Help', 'HMG'] };
-        const words = (AUD[r] || []).join(' ');
-        if (!(m.group + ' ' + words).toLowerCase().includes(m.group.toLowerCase()) && !words.toLowerCase().includes('')) {
-          /* keep loose: only filter when the group clearly maps */
-        }
-        const MAP = { admin: /Admin|Administration|Governance/i, tutor: /Teaching|People|Scheduling|Quizzes|Resources|Free/i, parent: /Money|Communication/i, student: /Learning|Progress/i, public: /Help|HMG|Public/i };
-        if (!MAP[r] || !MAP[r].test(m.group + ' ' + m.name)) return;
-      }
-      (groups[m.group] = groups[m.group] || []).push(m);
-      shown++;
-    });
-    count.textContent = shown + ' module(s)';
-    if (!shown) { root.innerHTML = '<div class="card" style="padding:36px;text-align:center"><p class="muted">No modules match that search.</p></div>'; return; }
-    root.innerHTML = Object.keys(groups).map(g => {
-      return '<h2 style="margin:22px 0 10px">'+TC.esc(g)+'</h2><div class="grid grid-2">' +
-        groups[g].map(m => '<a class="card" href="'+m.file+'" style="text-decoration:none;color:inherit"><h3 style="margin:0 0 6px">'+TC.esc(m.name)+'</h3><p class="muted" style="margin:0">'+TC.esc(m.desc)+'</p></a>').join('') +
-        '</div>';
-    }).join('');
-  }
-  q.addEventListener('input', draw);
-  role.addEventListener('change', draw);
-  draw();
-});
-
-</script>
-
 </body>
 </html>
