@@ -208,6 +208,11 @@ console.log('[Tutoring Connect] config —', window.PRACTICE.name);
     'assets/img/ecosystem-flyers/flyer-5.jpg','assets/img/ecosystem-flyers/flyer-6.jpg',
     'assets/img/ecosystem-flyers/flyer-7.jpg','assets/img/ecosystem-flyers/flyer-8.jpg',
     'assets/js/cbt.js','assets/js/cbt-types.js','assets/js/proctor.js','assets/js/drive-sync.js','assets/js/data-portability.js',
+    /* V39 — CBT rich-text maths renderer + candidate read-aloud. Both are
+       referenced by every one of the 140 pages; omitting them ships a client
+       ZIP with 140 pages carrying 2 dead script tags (278 broken asset
+       references), killing the rich-text editor and the read-aloud feature. */
+    'assets/js/cbt-richtext.js','assets/js/cbt-speech.js',
     'assets/js/bookings-engine.js','assets/js/catalog.js','assets/js/license.js',
     'assets/js/media.js','assets/js/brand.js','assets/js/notifications.js','assets/js/pwa-install.js',
     'assets/js/site-help.js','assets/js/assistant-kb.js','assets/js/ics.js','assets/js/chatbot.js','assets/js/ai-assistant.js','assets/js/security-guard.js',
