@@ -61,7 +61,7 @@ const Generator = {
       '};',
       'console.log("[Classroom Deck] branded for", window.CLASSDECK.BRAND.studioName);',
       ''
-    ].join('\\n');
+    ].join('\n');
 
     const deckFiles = [
       'index.html','teach.html','join.html','stream.html','classroom.html','admin.html',
@@ -103,11 +103,11 @@ const Generator = {
         if (rel === 'teach.html') {
           if (txt.indexOf('teach-toolbar-fix.js') === -1) {
             txt = txt.replace('js/teach.js"></script>',
-              'js/teach.js"></script>\\n<script src="js/teach-toolbar-fix.js"></script>');
+              'js/teach.js"></script>\n<script src="js/teach-toolbar-fix.js"></script>');
           }
           if (txt.indexOf('portal-bridge.js') === -1) {
             txt = txt.replace('js/config.js"></script>',
-              'js/config.js"></script>\\n<script src="js/portal-bridge.js"></script>');
+              'js/config.js"></script>\n<script src="js/portal-bridge.js"></script>');
           }
         }
         zip.file('classdeck/' + rel, txt);
