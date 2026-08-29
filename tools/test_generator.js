@@ -55,7 +55,7 @@ const cfg = {
   font: window.TC.FONTS[1], layout: 'academy',
   address: 'Lagos, Nigeria', phone: '2348100000000', email: 'hello@test.example',
   siteUrl: 'https://testacademy.vercel.app', timezone: 'Africa/Lagos', currency: '\u20a6',
-  logoExt: 'svg', logoUrl: 'assets/img/logo.svg',
+  logoExt: 'svg', logoUrl: 'assets/img/logo.png',
   socials: { whatsapp: 'https://wa.me/2348100000000', instagram: 'https://instagram.com/test' },
   supabaseUrl: 'https://abcd.supabase.co', supabaseKey: 'eyJtest',
   modules: ['engagements', 'learners', 'bookings', 'practice'],

@@ -265,7 +265,7 @@ console.log(`\n=== RUNTIME TESTS · ${path.basename(ROOT)} ===\n`);
     const dom = mkdom('<!doctype html><html><head><title>t</title></head><body></body></html>', 'https://studio.test/index.html');
     const w = dom.window;
     w.PRACTICE = { name: 'Test Studio', motto: 'M', siteUrl: 'https://studio.test',
-                   logoUrl: 'assets/img/logo.svg', socials: { instagram: 'https://ig/x' },
+                   logoUrl: 'assets/img/logo.png', socials: { instagram: 'https://ig/x' },
                    hmg: { concepts: 'https://hmgconcepts.pages.dev/' } };
     loadScripts(dom, ['assets/js/page-guide.js', 'assets/js/seo.js']);
     w.SEO.init();
