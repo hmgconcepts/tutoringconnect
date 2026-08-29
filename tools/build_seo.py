@@ -34,6 +34,7 @@ USAGE
 import os
 import re
 import sys
+import json
 import datetime
 
 # Pages that SHOULD be indexed. Everything else in the studio is private and
@@ -70,6 +71,11 @@ def read_cfg(root):
         m = re.search(k + r"\s*:\s*['\"]([^'\"]*)['\"]", s)
         if m:
             out[k] = m.group(1)
+    # V40 (item 12) — pull the HMG CONCEPTS ecosystem domains so the structured
+    # data can point search engines at the ecosystem that owns this studio.
+    m = re.search(r"hmg:\s*\{[^}]*concepts:\s*['\"]([^'\"]*)['\"]", s)
+    if m:
+        out['hmg_concepts'] = m.group(1)
     return out
 
 
@@ -170,9 +176,38 @@ def main():
             open(p, 'w', encoding='utf-8').write(s2)
             cleaned += 1
 
+    # ---------------- canonical + JSON-LD: STRIP, then let seo.js inject at runtime ----------------
+    # V40 (item 12) — learned, corrected this pass.
+    #   assets/js/seo.js runs on every page and INJECTS the canonical URL and a
+    #   full Organization + WebSite + BreadcrumbList JSON-LD block at runtime,
+    #   built from PRACTICE.siteUrl (the *client's* domain) and the HMG ecosystem.
+    #
+    #   Injecting a STATIC canonical/JSON-LD into the source pages was a mistake:
+    #   (1) it hardcoded the GENERATOR domain (tutoringconnect.vercel.app), which
+    #       is then shipped into every generated studio — the exact cross-domain
+    #       leak this script was written to prevent; and
+    #   (2) seo.js appends its own JSON-LD with id="tc-jsonld", so a page would
+    #       carry TWO conflicting structured-data blocks (one wrong, one right).
+    #
+    #   So this script now REMOVES any static canonical + JSON-LD from the public
+    #   pages and leaves SEO to seo.js, which is correct for both the generator's
+    #   own site and every generated studio (it reads the live siteUrl).
+    stripped = 0
+    for f in public:
+        p = os.path.join(root, f)
+        s = open(p, encoding='utf-8').read()
+        s2 = re.sub(r'\s*<link rel="canonical"[^>]*>', '', s)
+        s2 = re.sub(r'\s*<script[^>]*application/ld\+json[^>]*>.*?</script>', '', s2,
+                    flags=re.S)
+        # seo.js sets the canonical + meta at runtime; nothing static should remain.
+        if s2 != s:
+            open(p, 'w', encoding='utf-8').write(s2)
+            stripped += 1
+
     print('   SEO for %-22s base=%s' % (name, base))
     print('   public=%d  private=%d  noindex added=%d  noindex cleaned=%d'
           % (len(public), len(private), touched, cleaned))
+    print('   static canonical/JSON-LD removed from %d public pages (seo.js injects at runtime)' % stripped)
     return 0
 
 
