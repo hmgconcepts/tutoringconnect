@@ -204,12 +204,12 @@ const App = {
       }
       // Derive a readable dark variant for gradients/active states.
       root.setProperty('--tc-primary-dark', (p.theme && p.theme.primaryDark) || primary);
-      const logo = p.logoUrl || ('assets/img/logo.' + (p.logoExt || 'svg'));
+      const logo = p.logoUrl || ('assets/img/logo.' + (p.logoExt || 'png'));
       document.querySelectorAll('.app-brand img, .pwa-install-icon, .nav-logo img, img[data-logo], img[data-practice-logo]').forEach(img => {
         if (!img) return;
         img.setAttribute('src', (window.Media && p.logoUrl && Media.driveId && Media.driveId(p.logoUrl)) ? Media.driveView(p.logoUrl) : logo);
         img.setAttribute('alt', p.name || 'ADEWALE CLASSROOM');
-        if (!img.getAttribute('onerror')) img.setAttribute('onerror', "this.onerror=null;this.src='assets/img/logo.svg'");
+        if (!img.getAttribute('onerror')) img.setAttribute('onerror', "this.onerror=null;this.src='assets/img/logo.png'");
       });
       document.querySelectorAll('[data-practice-name], .app-brand strong').forEach(el => {
         if (p.name) el.textContent = p.name;
@@ -1389,7 +1389,7 @@ const App = {
       const ban = document.createElement('div');
       ban.id = 'pwa-install-banner';
       ban.className = 'pwa-install-banner';
-      ban.innerHTML = '<img class="pwa-install-icon" data-logo src="assets/img/logo.svg" alt="" width="40" height="40">' +
+      ban.innerHTML = '<img class="pwa-install-icon" data-logo src="assets/img/logo.png" alt="" width="40" height="40">' +
         '<div class="pwa-install-msg">📲 Install <b>' + esc(p.name || 'ADEWALE CLASSROOM') + '</b> for class reminders, scores and messages — even when the tab is closed.</div>' +
         '<div style="display:flex;gap:6px;flex-wrap:wrap">' +
         '<button class="btn btn-sm btn-primary" type="button" data-pwa-action="install">Install</button>' +
