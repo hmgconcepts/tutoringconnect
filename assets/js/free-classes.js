@@ -146,8 +146,10 @@
             '<div class="form-group" style="grid-column:1/-1"><label for="fc-desc">What the class covers</label>' +
               '<textarea class="form-textarea" id="fc-desc" rows="2"></textarea></div>' +
             '<div class="form-group"><label for="fc-board">Exam being prepared for</label>' +
-              '<select class="form-select" id="fc-board"><option value="">— choose —</option>' +
-                BOARDS.map(function (b) { return '<option>' + esc(b) + '</option>'; }).join('') + '</select></div>' +
+              '<select multiple class="form-select" id="fc-board" style="height:120px">' +
+                BOARDS.map(function (b) { return '<option>' + esc(b) + '</option>'; }).join('') + '</select>' +
+              '<p class="muted" style="font-size:0.75rem; margin-top:4px;">Hold Ctrl/Cmd to select multiple</p></div>' +
+  
             '<div class="form-group"><label for="fc-series">Sitting</label>' +
               '<input class="form-input" id="fc-series" placeholder="May/June 2026"></div>' +
             '<div class="form-group"><label for="fc-subjects">Subjects</label>' +
@@ -177,7 +179,15 @@
             '<div class="form-group"><label for="fc-soc-fb">Facebook Page</label><input class="form-input" type="url" id="fc-soc-fb" placeholder="https://facebook.com/..."></div>' +
             '<div class="form-group"><label for="fc-soc-x">X (Twitter) Profile</label><input class="form-input" type="url" id="fc-soc-x" placeholder="https://x.com/..."></div>' +
             '<div class="form-group"><label for="fc-soc-tt">TikTok Profile</label><input class="form-input" type="url" id="fc-soc-tt" placeholder="https://tiktok.com/..."></div>' +
+            '<div class="form-group"><label for="fc-soc-wa">WhatsApp Channel</label><input class="form-input" type="url" id="fc-soc-wa" placeholder="https://whatsapp.com/channel/..."></div>' +
+            '<div class="form-group"><label for="fc-soc-tg">Telegram Channel</label><input class="form-input" type="url" id="fc-soc-tg" placeholder="https://t.me/..."></div>' +
             '<div class="form-group" style="grid-column:1/-1"><hr style="border:0;border-top:1px solid #e2e8f0;margin:0"></div>' +
+
+            
+            '<div class="form-group" style="grid-column:1/-1;margin-top:16px"><h4 style="margin:0 0 4px">Eligibility CBT</h4><p class="muted" style="margin:0 0 12px;font-size:0.85rem">Require students to pass a test before joining.</p></div>' +
+            '<div class="form-group"><label><input type="checkbox" id="fc-req-cbt"> Require Eligibility CBT</label></div>' +
+            '<div class="form-group"><label>CBT Quiz Code</label><input class="form-input" id="fc-cbt-code" placeholder="MATH01"></div>' +
+            '<div class="form-group"><label>Pass Mark (%)</label><input type="number" class="form-input" id="fc-cbt-pass" value="50"></div>' +
 
             '<div class="form-group"><label for="fc-wa">WhatsApp group link</label>' +
               '<input class="form-input" type="url" id="fc-wa" placeholder="https://chat.whatsapp.com/…"></div>' +
@@ -189,7 +199,7 @@
             '<div class="form-group"><label for="fc-sched">Schedule, in words</label>' +
               '<input class="form-input" id="fc-sched" placeholder="Saturdays &amp; Sundays, 5–7pm WAT"></div>' +
             '<div class="form-group"><label for="fc-tz">Time zone</label>' +
-              '<input class="form-input" id="fc-tz" value="Africa/Lagos"></div>' +
+              '<select class="form-select" id="fc-tz"><option value="Africa/Lagos">Africa/Lagos (WAT)</option><option value="Europe/London">Europe/London (GMT/BST)</option><option value="America/New_York">America/New_York (EST/EDT)</option><option value="America/Chicago">America/Chicago (CST/CDT)</option><option value="America/Toronto">America/Toronto (EST/EDT)</option><option value="Asia/Dubai">Asia/Dubai (GST)</option><option value="Asia/Kolkata">Asia/Kolkata (IST)</option><option value="Australia/Sydney">Australia/Sydney (AEST/AEDT)</option><option value="UTC">UTC</option></select></div>' +
             '<div class="form-group"><label for="fc-start">Starts</label>' +
               '<input class="form-input" type="date" id="fc-start"></div>' +
             '<div class="form-group"><label for="fc-end">Ends</label>' +
@@ -248,7 +258,7 @@
       var ck = function (id) { var e = d.getElementById(id); return !!(e && e.checked); };
       return {
         name: v('fc-name'), code: v('fc-code').toUpperCase(), description: v('fc-desc'),
-        exam_board: v('fc-board') || null, exam_series: v('fc-series') || null,
+        exam_board: (function(e){ if(!e)return null; return Array.from(e.selectedOptions).map(o=>o.value).join(', '); })(d.getElementById('fc-board')) || null, exam_series: v('fc-series') || null,
         subjects: v('fc-subjects') ? v('fc-subjects').split(',').map(function (x) { return x.trim(); }).filter(Boolean) : [],
         level: v('fc-level') || null,
         platform: v('fc-platform'), tutor_id: v('fc-tutor') || null,
@@ -259,7 +269,8 @@
         starts_on: v('fc-start') || null, ends_on: v('fc-end') || null,
         capacity: parseInt(v('fc-cap') || '0', 10) || 0,
         status: v('fc-status') || 'open',
-        social_links: { yt: v('fc-soc-yt'), fb: v('fc-soc-fb'), x: v('fc-soc-x'), tt: v('fc-soc-tt') },
+        require_cbt: ck('fc-req-cbt'), cbt_code: v('fc-cbt-code') || null, cbt_pass_mark: parseInt(v('fc-cbt-pass'), 10) || 50,
+        social_links: { yt: v('fc-soc-yt'), fb: v('fc-soc-fb'), x: v('fc-soc-x'), tt: v('fc-soc-tt'), wa: v('fc-soc-wa'), tg: v('fc-soc-tg') },
         requires_parent_consent: ck('fc-consent'),
         auto_approve: ck('fc-auto'),
         track_attendance: ck('fc-track'),
@@ -414,7 +425,7 @@
         var set = function (fid, v) { var e = d.getElementById(fid); if (e) e.value = v == null ? '' : v; };
         var ck = function (fid, v) { var e = d.getElementById(fid); if (e) e.checked = !!v; };
         set('fc-name', c.name); set('fc-code', c.code); set('fc-desc', c.description);
-        set('fc-board', c.exam_board); set('fc-series', c.exam_series);
+        var fb = d.getElementById('fc-board'); if(fb) { var vals = (c.exam_board||'').split(',').map(s=>s.trim()); Array.from(fb.options).forEach(o=>o.selected = vals.includes(o.value)); } set('fc-series', c.exam_series);
         set('fc-subjects', (c.subjects || []).join(', ')); set('fc-level', c.level);
         set('fc-platform', c.platform); set('fc-tutor', c.tutor_id);
         set('fc-meet', c.meeting_url); set('fc-yt', c.youtube_url); set('fc-replay', c.replay_url);
@@ -422,8 +433,8 @@
         set('fc-sched', c.schedule_text); set('fc-tz', c.tz);
         set('fc-start', c.starts_on); set('fc-end', c.ends_on);
         set('fc-cap', c.capacity); set('fc-status', c.status);
-        var sl = c.social_links || {}; set('fc-soc-yt', sl.yt); set('fc-soc-fb', sl.fb); set('fc-soc-x', sl.x); set('fc-soc-tt', sl.tt);
-        ck('fc-consent', c.requires_parent_consent); ck('fc-auto', c.auto_approve);
+        var sl = c.social_links || {}; set('fc-soc-yt', sl.yt); set('fc-soc-fb', sl.fb); set('fc-soc-x', sl.x); set('fc-soc-tt', sl.tt); set('fc-soc-wa', sl.wa); set('fc-soc-tg', sl.tg);
+        ck('fc-consent', c.requires_parent_consent); ck('fc-req-cbt', c.require_cbt); set('fc-cbt-code', c.cbt_code); set('fc-cbt-pass', c.cbt_pass_mark); ck('fc-auto', c.auto_approve);
         ck('fc-track', c.track_attendance);
         d.getElementById('fc-form-title').textContent = 'Editing “' + c.name + '”';
         w.scrollTo({ top: 0, behavior: 'smooth' });
@@ -511,7 +522,7 @@
         var blob = new Blob([head + '\n' + body], { type: 'text/csv;charset=utf-8' });
         var a = d.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = (c.code || 'free-class') + '-register.csv';
+        a.download = (c.code || 'free-class') + '-registrations.csv';
         a.click();
       });
 
@@ -596,18 +607,30 @@
         return;
       }
 
+      
       var subs = Array.isArray(info.subjects) ? info.subjects : [];
+      var dateRange = '';
+      if (info.starts_on) dateRange += 'Starts: ' + info.starts_on;
+      if (info.ends_on) dateRange += (dateRange ? ' — Ends: ' + info.ends_on : 'Ends: ' + info.ends_on);
+
+      var bannerHtml = info.banner_url ? '<div style="margin:-18px -18px 18px -18px; height:180px; border-radius:16px 16px 0 0; background:url(\''+esc(info.banner_url)+'\') center/cover no-repeat;"></div>' : '';
+
       host.innerHTML =
-        '<section class="card" style="background:linear-gradient(135deg,#0506ae,#964eec) !important; color:#fff !important;">' +
-          '<div style="font-size:.78rem;letter-spacing:2px;opacity:.85;color:#fff">FREE CLASS</div>' +
-          '<h1 style="margin:4px 0 6px;font-size:1.6rem;color:#fff">' + esc(info.name) + '</h1>' +
-          '<p style="margin:0;opacity:.95;color:#fff">' + esc(info.description || '') + '</p>' +
-          '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;font-size:.85rem">' +
-            (info.exam_board ? '<span style="background:rgba(255,255,255,.18);padding:3px 10px;border-radius:999px">🎯 ' + esc(info.exam_board) + '</span>' : '') +
-            (info.level ? '<span style="background:rgba(255,255,255,.18);padding:3px 10px;border-radius:999px">🎓 ' + esc(info.level) + '</span>' : '') +
-            (info.schedule ? '<span style="background:rgba(255,255,255,.18);padding:3px 10px;border-radius:999px">🗓️ ' + esc(info.schedule) + '</span>' : '') +
-            (info.platform ? '<span style="background:rgba(255,255,255,.18);padding:3px 10px;border-radius:999px">📺 ' + esc(info.platform) + '</span>' : '') +
-            (subs.length ? '<span style="background:rgba(255,255,255,.18);padding:3px 10px;border-radius:999px">📚 ' + esc(subs.join(', ')) + '</span>' : '') +
+        '<div style="text-align:center; margin-bottom:20px;"><a href="index.html"><img src="assets/img/logo.png" style="height:60px; border-radius:8px;" alt="Studio Logo"></a></div>' +
+        '<section class="card" style="position:relative; border:none; box-shadow:0 10px 30px rgba(0,0,0,0.1); overflow:hidden;">' +
+          bannerHtml +
+          '<div style="background:var(--gradient, linear-gradient(135deg,#0506ae,#964eec)); color:#fff !important; padding:24px; border-radius:' + (info.banner_url ? '0 0 16px 16px' : '16px') + ';">' +
+            '<div style="font-size:.78rem;letter-spacing:2px;font-weight:700;text-transform:uppercase;margin-bottom:8px;color:#cbd5e1">FREE CLASS REGISTRATION</div>' +
+            '<h1 style="margin:0 0 12px;font-size:2rem;color:#fff">' + esc(info.name) + '</h1>' +
+            '<p style="margin:0 0 16px;font-size:1.05rem;line-height:1.5;color:#e2e8f0">' + esc(info.description || 'Join our expert-led free class and accelerate your learning.') + '</p>' +
+            '<div style="display:flex;gap:8px;flex-wrap:wrap;font-size:.85rem">' +
+              (info.exam_board ? '<span style="background:rgba(255,255,255,.2);padding:4px 12px;border-radius:999px;backdrop-filter:blur(4px)">🎯 <b>Board:</b> ' + esc(info.exam_board) + '</span>' : '') +
+              (info.level ? '<span style="background:rgba(255,255,255,.2);padding:4px 12px;border-radius:999px;backdrop-filter:blur(4px)">🎓 <b>Level:</b> ' + esc(info.level) + '</span>' : '') +
+              (info.schedule ? '<span style="background:rgba(255,255,255,.2);padding:4px 12px;border-radius:999px;backdrop-filter:blur(4px)">🗓️ <b>Schedule:</b> ' + esc(info.schedule) + ' ('+esc(info.tz||'UTC')+')</span>' : '') +
+              (dateRange ? '<span style="background:rgba(255,255,255,.2);padding:4px 12px;border-radius:999px;backdrop-filter:blur(4px)">⏳ ' + esc(dateRange) + '</span>' : '') +
+              (info.platform ? '<span style="background:rgba(255,255,255,.2);padding:4px 12px;border-radius:999px;backdrop-filter:blur(4px)">📺 <b>Platform:</b> ' + esc(info.platform) + '</span>' : '') +
+              (subs.length ? '<span style="background:rgba(255,255,255,.2);padding:4px 12px;border-radius:999px;backdrop-filter:blur(4px)">📚 <b>Subjects:</b> ' + esc(subs.join(', ')) + '</span>' : '') +
+            '</div>' +
           '</div>' +
         '</section>' +
 
@@ -631,6 +654,7 @@
               '<div class="form-group"><label for="fr-country">Country</label><input class="form-input" id="fr-country"></div>' +
               '<div class="form-group"><label for="fr-state">State / Region</label><input class="form-input" id="fr-state"></div>' +
               '<div class="form-group"><label for="fr-city">City</label><input class="form-input" id="fr-city"></div>' +
+       '<div class="form-group"><label for="fr-tz">Timezone</label><select class="form-select" id="fr-tz"><option value="Africa/Lagos">Africa/Lagos (WAT)</option><option value="Europe/London">Europe/London (GMT/BST)</option><option value="America/New_York">America/New_York (EST/EDT)</option><option value="America/Chicago">America/Chicago (CST/CDT)</option><option value="America/Toronto">America/Toronto (EST/EDT)</option><option value="Asia/Dubai">Asia/Dubai (GST)</option><option value="Asia/Kolkata">Asia/Kolkata (IST)</option><option value="Australia/Sydney">Australia/Sydney (AEST/AEDT)</option><option value="UTC">UTC</option></select></div>' +
               '<div class="form-group"><label for="fr-gender">Gender</label><select class="form-select" id="fr-gender"><option value=""></option><option value="Male">Male</option><option value="Female">Female</option></select></div>' +
               '<div class="form-group"><label for="fr-age">Age</label><input class="form-input" type="number" id="fr-age"></div>'
    +
@@ -658,12 +682,13 @@
                   'agrees that I may attend, and that the studio may record my attendance and results.</span></label></div>'
               : '') +
             '<div id="fr-soc-placeholder"></div><button class="btn btn-primary" type="button" id="fr-go" style="margin-top:10px">Register for this free class</button>' +
-          '</section>');
+          '</section>' +
+        '<div style="text-align:center; margin-top:24px;"><a href="index.html" class="btn btn-ghost">← Back to Main Website</a></div>');
 
             var sl = info.social_links || {};
             var reqClicks = 0;
-            if ((sl.yt || sl.fb || sl.x || sl.tt) && info.open !== false) {
-              if(sl.yt) reqClicks++; if(sl.fb) reqClicks++; if(sl.x) reqClicks++; if(sl.tt) reqClicks++;
+            if ((sl.yt || sl.fb || sl.x || sl.tt || sl.wa || sl.tg) && info.open !== false) {
+              if(sl.yt) reqClicks++; if(sl.fb) reqClicks++; if(sl.x) reqClicks++; if(sl.tt) reqClicks++; if(sl.wa) reqClicks++; if(sl.tg) reqClicks++;
               var socialHtml = '<div class="card" style="background:#fffbeb;border:1px solid #fcd34d;margin:10px 0" id="fr-soc-box">' +
                 '<b style="color:#92400e">Follow us to register</b>' +
                 '<p class="muted" style="margin:6px 0 10px;font-size:.85rem">Please follow/subscribe to our official channels below. The registration button will unlock automatically once you click them.</p>' +
@@ -672,6 +697,8 @@
               if (sl.fb) socialHtml += '<a class="btn btn-outline fr-soc-link" target="_blank" rel="noopener" href="'+esc(sl.fb)+'">📘 Follow on Facebook</a>';
               if (sl.x)  socialHtml += '<a class="btn btn-outline fr-soc-link" target="_blank" rel="noopener" href="'+esc(sl.x)+'">🐦 Follow on X/Twitter</a>';
               if (sl.tt) socialHtml += '<a class="btn btn-outline fr-soc-link" target="_blank" rel="noopener" href="'+esc(sl.tt)+'">🎵 Follow on TikTok</a>';
+              if (sl.wa) socialHtml += '<a class="btn btn-outline fr-soc-link" target="_blank" rel="noopener" href="'+esc(sl.wa)+'">💬 Follow WhatsApp Channel</a>';
+              if (sl.tg) socialHtml += '<a class="btn btn-outline fr-soc-link" target="_blank" rel="noopener" href="'+esc(sl.tg)+'">✈️ Follow Telegram Channel</a>';
               socialHtml += '</div></div>';
               var ph = document.getElementById('fr-soc-placeholder');
               if(ph) ph.outerHTML = socialHtml;
@@ -726,7 +753,7 @@
             p_email: v('fr-email') || null,
             p_phone: v('fr-phone'), p_whatsapp: v('fr-whatsapp') || null,
             p_country: v('fr-country') || null, p_state: v('fr-state') || null,
-            p_city: v('fr-city') || null, p_gender: v('fr-gender') || null, p_age: parseInt(v('fr-age'), 10) || null,
+            p_city: v('fr-city') || null, p_tz: v('fr-tz') || null, p_gender: v('fr-gender') || null, p_age: parseInt(v('fr-age'), 10) || null,
             p_school: v('fr-school') || null,
             p_level: v('fr-level') || null,
             p_board: info.exam_board || null,
@@ -749,7 +776,8 @@
                 esc(out.reg_no) + '</b> — write it down or screenshot this page.</p>' +
               '<p class="muted" style="margin:0 0 12px">Status: ' + esc(out.status) + '</p>' +
               '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
-                (out.whatsapp_url ? '<a class="btn btn-primary" target="_blank" rel="noopener" href="' + esc(out.whatsapp_url) + '">💬 Join the WhatsApp group</a>' : '') +
+                (out.require_cbt ? '<a class="btn btn-accent" href="cbt-exam.html?code=' + encodeURIComponent(out.cbt_code) + '&reg=' + encodeURIComponent(out.reg_no) + '">📝 Take Eligibility Test</a>' : 
+   (out.whatsapp_url ? '<a class="btn btn-primary" target="_blank" rel="noopener" href="' + esc(out.whatsapp_url) + '">💬 Join the WhatsApp group</a>' : '')) +
                 (out.telegram_url ? '<a class="btn btn-outline" target="_blank" rel="noopener" href="' + esc(out.telegram_url) + '">✈️ Join the Telegram group</a>' : '') +
                 (out.meeting_url ? '<a class="btn btn-outline" target="_blank" rel="noopener" href="' + esc(out.meeting_url) + '">🎥 Class meeting link</a>' : '') +
                 (out.youtube_url ? '<a class="btn btn-outline" target="_blank" rel="noopener" href="' + esc(out.youtube_url) + '">▶️ YouTube channel</a>' : '') +

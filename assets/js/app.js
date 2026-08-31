@@ -204,7 +204,7 @@ const App = {
       }
       // Derive a readable dark variant for gradients/active states.
       root.setProperty('--tc-primary-dark', (p.theme && p.theme.primaryDark) || primary);
-      const logo = p.logoUrl || ('assets/img/logo.' + (p.logoExt || 'png'));
+      const logo = p.logoUrl || ('assets/img/logo.' + (p.logoExt || 'svg'));
       document.querySelectorAll('.app-brand img, .pwa-install-icon, .nav-logo img, img[data-logo], img[data-practice-logo]').forEach(img => {
         if (!img) return;
         img.setAttribute('src', (window.Media && p.logoUrl && Media.driveId && Media.driveId(p.logoUrl)) ? Media.driveView(p.logoUrl) : logo);
