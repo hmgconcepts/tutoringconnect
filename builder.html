@@ -75,7 +75,17 @@
       <div class="form-group"><label>Short name</label><input class="form-input" data-sync="shortName" placeholder="ADC"></div>
       <div class="form-group"><label>Student-ID prefix</label><input class="form-input" data-sync="admissionAcronym" placeholder="TC" maxlength="8"><div class="form-help">Learner IDs look like <b>TC-0001</b>.</div></div>
       <div class="form-group"><label>Motto</label><input class="form-input" data-sync="schoolMotto" placeholder="Independent progress. Visible to parents."></div>
-      <div class="form-group"><label>Timezone</label><input class="form-input" data-sync="timezone" value="Africa/Lagos"></div>
+      <div class="form-group"><label>Timezone</label><select class="form-select" data-sync="timezone">
+        <option value="Africa/Lagos">Africa/Lagos (WAT)</option>
+        <option value="Europe/London">Europe/London (GMT/BST)</option>
+        <option value="America/New_York">America/New_York (EST/EDT)</option>
+        <option value="America/Chicago">America/Chicago (CST/CDT)</option>
+        <option value="America/Toronto">America/Toronto (EST/EDT)</option>
+        <option value="Asia/Dubai">Asia/Dubai (GST)</option>
+        <option value="Asia/Kolkata">Asia/Kolkata (IST)</option>
+        <option value="Australia/Sydney">Australia/Sydney (AEST/AEDT)</option>
+        <option value="UTC">UTC</option>
+      </select></div>
       <div class="form-group"><label>Currency</label><input class="form-input" data-sync="currency" value="₦"></div>
       <div class="form-group"><label>Phone</label><input class="form-input" data-sync="phone" placeholder="2348100866322"></div>
       <div class="form-group"><label>Email</label><input class="form-input" type="email" data-sync="email"></div>
