@@ -70,7 +70,7 @@ const CDCrashSafe = {
       const tx = db.transaction(this.storeName, 'readwrite');
       const store = tx.objectStore(this.storeName);
       const all = await new Promise(r => { const q = store.getAll(); q.onsuccess = () => r(q.result); });
-      all.filter(r => r.sessionId === sessionId).forEach(r => store.delete(r.id));
+      all.filter(r => sessionId === 'all' || r.sessionId === sessionId).forEach(r => store.delete(r.id));
       await new Promise((resolve, reject) => { tx.oncomplete = resolve; tx.onerror = reject; });
     } catch {}
   },
@@ -662,6 +662,27 @@ window.CDSecurity = CDSecurity;
         bar.remove();
         toast('Recovery in progress...', 'ok', 3000);
         // The chunks are in IndexedDB — the user can download them
+        // The chunks are in IndexedDB — the user can download them
+        try {
+          const db = await CDCrashSafe.openDB();
+          const tx = db.transaction(CDCrashSafe.storeName, 'readonly');
+          const store = tx.objectStore(CDCrashSafe.storeName);
+          const all = await new Promise(r => { const q = store.getAll(); q.onsuccess = () => r(q.result); });
+          
+          const sessionIds = [...new Set(all.map(r => r.sessionId))];
+          for (const sid of sessionIds) {
+             const chunks = all.filter(r => r.sessionId === sid).sort((a,b) => a.ts - b.ts).map(r => r.chunk);
+             if (chunks.length > 0) {
+               const blob = new Blob(chunks, { type: 'video/webm' });
+               const fname = 'Recovered_Lesson_' + new Date().toISOString().slice(0,10) + '.webm';
+               const a = document.createElement('a');
+               a.href = URL.createObjectURL(blob);
+               a.download = fname;
+               a.click();
+               URL.revokeObjectURL(a.href);
+             }
+          }
+        } catch(e) { console.error('Recovery failed', e); }
         CDCrashSafe.clearSession('all');
       });
       document.getElementById('recRecoverNo').addEventListener('click', () => {
