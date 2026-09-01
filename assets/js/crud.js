@@ -803,11 +803,9 @@ const CRUD = {
         const m = {};
         if (this.sb) {
           const { data } = await this.sb.from(c.refTable).select('*').limit(1000);
-          (data || []).forEach(d => { m[String(d[c.refStore || c.refValue])] = d[c.refValue]; });
+          (data || []).forEach(d => { m[String(d[c.refStore || c.refValue])] = d[c.refValue] || d.email || d.name || d.title || 'Unnamed'; });
         } else {
-          ((window.DEMO && window.DEMO[c.refTable]) || []).forEach(d => {
-            m[String(d[c.refStore || c.refValue])] = d[c.refValue];
-          });
+          ((window.DEMO && window.DEMO[c.refTable]) || []).forEach(d => { m[String(d[c.refStore || c.refValue])] = d[c.refValue] || d.email || d.name || d.title || 'Unnamed'; });
         }
         this._refCache[key] = m;
       }
@@ -826,7 +824,7 @@ const CRUD = {
       const label = maps[col.key][String(raw)];
       return label
         ? TC.esc(label)
-        : '<span class="muted" title="' + TC.esc(String(raw)) + '">unresolved link</span>';
+        : (maps[col.key].hasOwnProperty(String(raw)) ? '<span class="muted" title="' + TC.esc(String(raw)) + '">unnamed link</span>' : '<span class="muted" title="' + TC.esc(String(raw)) + '">unresolved link</span>');
     }
     if (col.type === 'checkbox' || typeof raw === 'boolean') {
       return raw
