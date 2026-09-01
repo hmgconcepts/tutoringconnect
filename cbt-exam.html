@@ -594,7 +594,7 @@ async function finish() {
   const displayName = document.getElementById('dname').value.trim() || (state.learner && state.learner.full_name) || 'Guest';
   const meta = {
     title: state.exam.title,
-    student_no: state.learner && state.learner.student_no,
+    student_no: (state.learner && state.learner.student_no) || new URLSearchParams(location.search).get('reg') || new URLSearchParams(location.search).get('student'),
     full_name: displayName,
     quiz_kind: state.exam.quiz_kind,
     identity_mode: state.identity_mode
@@ -653,29 +653,6 @@ async function finish() {
     }
     
     if (savedSuccessfully) {
-      if (meta.student_no) {
-        try {
-          const { data: elig } = await window.sb.rpc('tc_cbt_eligibility_links', { p_student_no: meta.student_no, p_score: result.pct });
-          if (elig && elig.ok) {
-             if (elig.passed) {
-                gameHTML += `<div class="card" style="background:#ecfdf5; border-color:#10b981; margin-top:16px;">
-                  <h3 style="color:#047857;margin:0 0 8px;">🎉 Congratulations, you passed the eligibility benchmark!</h3>
-                  <p style="margin:0 0 12px;">You may now join the official cohort groups:</p>
-                  <div style="display:flex;gap:8px;">
-                    ${elig.whatsapp_url ? `<a class="btn btn-primary" href="${elig.whatsapp_url}" target="_blank">💬 Join WhatsApp</a>` : ''}
-                    ${elig.telegram_url ? `<a class="btn btn-outline" href="${elig.telegram_url}" target="_blank">✈️ Join Telegram</a>` : ''}
-                  </div>
-                </div>`;
-             } else {
-                gameHTML += `<div class="card" style="background:#fef2f2; border-color:#fecaca; margin-top:16px;">
-                  <h3 style="color:#b91c1c;margin:0 0 8px;">Eligibility Benchmark Not Met</h3>
-                  <p style="margin:0;">You scored ${result.pct}%. The passing mark is ${elig.pass_mark}%. Keep studying and try again!</p>
-                </div>`;
-             }
-          }
-        } catch(e) {}
-      }
-
       state.saved = true;
     } else {
       throw lastError;
@@ -716,7 +693,7 @@ async function finish() {
          if (elig.passed) {
             eligHTML = `<div class="card" style="background:#ecfdf5; border-color:#10b981; margin-top:16px;">
               <h3 style="color:#047857;margin:0 0 8px;">🎉 Congratulations, you passed the eligibility benchmark!</h3>
-              <p style="margin:0 0 12px;">You may now join the official cohort groups:</p>
+              <p style="margin:0 0 12px;">You met the required benchmark. You are now fully eligible to join our official cohort groups below:</p>
               <div style="display:flex;gap:8px;flex-wrap:wrap">
                 ${elig.whatsapp_url ? `<a class="btn btn-primary" href="${elig.whatsapp_url}" target="_blank">💬 Join WhatsApp</a>` : ''}
                 ${elig.telegram_url ? `<a class="btn btn-outline" href="${elig.telegram_url}" target="_blank">✈️ Join Telegram</a>` : ''}
@@ -725,7 +702,7 @@ async function finish() {
          } else {
             eligHTML = `<div class="card" style="background:#fef2f2; border-color:#fecaca; margin-top:16px;">
               <h3 style="color:#b91c1c;margin:0 0 8px;">Eligibility Benchmark Not Met</h3>
-              <p style="margin:0;">You scored ${result.pct}%. The passing mark is ${elig.pass_mark}%. Keep studying and try again!</p>
+              <p style="margin:0;">You scored ${result.pct}%. The passing mark is ${elig.pass_mark}%. Since you did not meet the eligibility benchmark, you are not eligible to join the WhatsApp and Telegram groups. Keep studying and try again!</p>
             </div>`;
          }
       }
@@ -768,7 +745,7 @@ async function finish() {
          <p class="muted" style="margin:6px 0 0;font-size:.8rem">Reason: ${TC.esc(state.saveError || 'unknown')}</p>
        </div>`
     : '';
-  rev.innerHTML = gameHTML + banner + (show ? CBT.reviewHTML(result, meta) : `<div class="card"><h2>Submitted</h2><p>Your tutor will release the review.</p></div>`) +
+  rev.innerHTML = (typeof eligHTML !== 'undefined' ? eligHTML : '') + (typeof gameHTML !== 'undefined' ? gameHTML : '') + banner + (show ? CBT.reviewHTML(result, meta) : `<div class="card"><h2>Submitted</h2><p>Your tutor will release the review.</p></div>`) +
     `<p style="margin-top:12px"><button class="btn btn-accent" type="button" onclick="CBT.printReview()">Save / print PDF</button>
      <a class="btn btn-ghost" href="scoresheet.html">Open scoresheet</a></p>`;
   if (state.saved === false) {
