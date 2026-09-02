@@ -1919,9 +1919,13 @@ let recMeta = { subject: "", topic: "", klass: "", students: false, brand: "", f
    Brand/footer text: from the recording dialog (remembered). */
 let recLogo = new Image();
 function loadRecLogo() {
-  const data = Store.get("rec_logo", null);
+  const data = Store.get("hmg_rec_logo") || Store.get("rec_logo", null);
   recLogo = new Image();
-  if (data) recLogo.src = data;
+  if (data) {
+    recLogo.src = data;
+  } else {
+    recLogo.src = "../assets/img/logo.png";
+  }
 }
 loadRecLogo();
 
@@ -1981,35 +1985,41 @@ on("#recBegin", "click", () => {
 
 function drawRecordingFrame() {
   const ctx = recCtx, W = recCanvas.width, H = recCanvas.height;
-  const headH = Math.round(H * 0.09), footH = Math.round(H * 0.045);
+  const baseHeadH = Math.round(H * 0.09);
+  const footH = Math.round(H * 0.045);
+  let cbtUrl = '';
+  try { cbtUrl = localStorage.getItem("hmg_cbt_link") || ""; } catch(e) {}
+  const headH = baseHeadH + (cbtUrl ? Math.round(H * 0.045) : 0);
+  
   /* header: logo + subject/topic/class */
   ctx.fillStyle = "#10142b";
   ctx.fillRect(0, 0, W, headH);
-  /* v7: the TEACHER'S brand — their logo, or a coloured initial badge */
+  
+  /* Draw base header elements inside baseHeadH bounds */
   if (recLogo.complete && recLogo.naturalWidth) {
-    const lh = headH * 0.78, lw = Math.min(lh * (recLogo.naturalWidth / recLogo.naturalHeight), W * 0.22);
-    ctx.drawImage(recLogo, 10, (headH - lh) / 2, lw, lh);
+    const lh = baseHeadH * 0.78, lw = Math.min(lh * (recLogo.naturalWidth / recLogo.naturalHeight), W * 0.22);
+    ctx.drawImage(recLogo, 10, (baseHeadH - lh) / 2, lw, lh);
   } else {
-    const bs = headH * 0.7;
+    const bs = baseHeadH * 0.7;
     ctx.fillStyle = "#4f6ef7";
-    ctx.beginPath(); ctx.roundRect(10, (headH - bs) / 2, bs, bs, bs * 0.22); ctx.fill();
+    ctx.beginPath(); ctx.roundRect(10, (baseHeadH - bs) / 2, bs, bs, bs * 0.22); ctx.fill();
     ctx.fillStyle = "#fff";
     ctx.font = "bold " + Math.round(bs * 0.62) + "px system-ui, sans-serif";
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    ctx.fillText((recMeta.brand || "C").charAt(0).toUpperCase(), 10 + bs / 2, headH / 2 + bs * 0.03);
+    ctx.fillText((recMeta.brand || "C").charAt(0).toUpperCase(), 10 + bs / 2, baseHeadH / 2 + bs * 0.03);
   }
   ctx.fillStyle = "#ffffff";
-  ctx.font = "bold " + Math.round(headH * 0.34) + "px system-ui, sans-serif";
+  ctx.font = "bold " + Math.round(baseHeadH * 0.34) + "px system-ui, sans-serif";
   ctx.textBaseline = "middle"; ctx.textAlign = "center";
   const title = recMeta.subject + (recMeta.topic ? " — " + recMeta.topic : "");
-  ctx.fillText(title, W / 2, headH * 0.38, W * 0.5);
+  ctx.fillText(title, W / 2, baseHeadH * 0.38, W * 0.5);
   ctx.fillStyle = "#9aa3cf";
-  ctx.font = Math.round(headH * 0.24) + "px system-ui, sans-serif";
-  ctx.fillText((recMeta.klass ? recMeta.klass + "  ·  " : "") + recMeta.brand, W / 2, headH * 0.74, W * 0.5);
+  ctx.font = Math.round(baseHeadH * 0.24) + "px system-ui, sans-serif";
+  ctx.fillText((recMeta.klass ? recMeta.klass + "  ·  " : "") + recMeta.brand, W / 2, baseHeadH * 0.74, W * 0.5);
   ctx.fillStyle = "#ffb347";
-  ctx.font = "bold " + Math.round(headH * 0.26) + "px system-ui, sans-serif";
+  ctx.font = "bold " + Math.round(baseHeadH * 0.26) + "px system-ui, sans-serif";
   ctx.textAlign = "right";
-  ctx.fillText(recMeta.brand, W - 12, headH / 2, W * 0.26);
+  ctx.fillText(recMeta.brand, W - 12, baseHeadH / 2, W * 0.26);
   ctx.textAlign = "left";
   /* workspace (the live broadcast canvas) */
   drawComposite(); // ensure COMP is fresh even if not live
@@ -2125,6 +2135,26 @@ async function startRecording() {
     if (window.HMG_REC_SESSION) window.HMG_REC_SESSION.startTs = Date.now();
     $("#btnRec").classList.add("active");
     toast("⏺ Recording started — " + ((activeRecorder.mimeType || mime || "webm").includes("mp4") ? "MP4" : "WebM") + " on this device when you stop", "ok", 5000);
+      if (window.HMGREC && typeof window.HMGREC.paintFrame === "function") {
+        
+    const introTime = 12;
+    const block = document.createElement('div');
+    block.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.9);color:#fff;z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:system-ui;text-align:center';
+    block.innerHTML = '<h1 style="font-size:3rem;color:#ffb347;margin:0">🎬 RECORDING STARTED</h1><p style="font-size:1.5rem;margin:10px 0">The branded intro is currently being recorded.</p><h2 style="font-size:5rem;margin:20px 0" id="hmgRecCount">' + introTime + '</h2><p style="font-size:1.5rem;color:#10b981">Please WAIT before teaching...</p>';
+    document.body.appendChild(block);
+    let sec = introTime;
+    const int = setInterval(() => {
+      sec--;
+      const cnt = document.getElementById('hmgRecCount');
+      if (cnt) cnt.textContent = sec;
+      if (sec <= 0) {
+        clearInterval(int);
+        block.innerHTML = '<h1 style="font-size:4rem;color:#10b981;margin:0">🎙️ START TEACHING NOW!</h1>';
+        setTimeout(() => block.remove(), 1500);
+      }
+    }, 1000);
+  
+      }
   } catch (e) {
     recorder = null;
     try { recStream.getVideoTracks().forEach((t) => t.stop()); } catch {}
@@ -3917,13 +3947,13 @@ onRoomEvent = function (type, p) {
   drawRecordingFrame = function () {
     const S = window.HMG_REC_SESSION;
     const hasHmg = !!window.HMGREC && typeof HMGREC.paintFrame === "function";
-    /* Intro & outro phases fully replace the frame */
+    /* Intro & outro phases fully replace the frame (Standalone) */
     if (hasHmg && S && S.startTs && HMGREC.paintFrame(recCanvas, recCtx)) {
-      /* Also draw CBT link overlay during intro */
       try {
         var cbtUrl = localStorage.getItem("hmg_cbt_link") || "";
         if (cbtUrl && typeof window.drawCBTOverlay === "function" && recCtx && recCanvas) {
-          window.drawCBTOverlay(recCtx, recCanvas.width, recCanvas.height, cbtUrl);
+          // window.drawCBTOverlay(recCtx, recCanvas.width, recCanvas.height, cbtUrl);
+          // (Actually, if it's standalone, maybe we don't draw the CBT link over the intro/outro)
         }
       } catch(e) {}
       return;
@@ -3957,8 +3987,8 @@ onRoomEvent = function (type, p) {
       S.ending = true;
       S.endTs = Date.now();
       const flyerMs = S.showFlyerMs || 3000;
-      const outroMs = S.outroMs || 4000;
-      const totalEndMs = 7000;
+      const outroMs = S.outroMs || 12000;
+      const totalEndMs = 12000;
       const endDeadline = Date.now() + totalEndMs;
       (function endLoop() {
         var remaining = endDeadline - Date.now();

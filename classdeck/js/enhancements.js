@@ -861,7 +861,7 @@ window.CDSecurity = CDSecurity;
     const W = canvas.width, H = canvas.height;
     if (s.ending) { this.drawOutroFrame(canvas, ctx, W, H); return true; }
     const elapsed = Date.now() - s.startTs;
-    if (elapsed < (s.introMs || 6000)) {
+    if (elapsed < (s.introMs || 12000)) {
       this.drawIntroFrame(canvas, ctx, W, H);
       this.drawLowerThird(ctx, W, H, this.meta.lowerThird, Date.now());
       if (this.meta.adText) this.drawAdOverlay(ctx, W, H, Date.now(), s.startTs);
@@ -1050,15 +1050,19 @@ window.addEventListener("beforeunload", () => {
 
 window.drawCBTOverlay = function(ctx, W, H, url) {
   if (!url) return;
-  const barH = Math.round(H * 0.05);
-  const y = H - Math.round(H * 0.06) - Math.round(H * 0.07) - barH - 20; // Above staff pulse
+  const originalHeadH = Math.round(H * 0.09);
+  const extraH = Math.round(H * 0.045);
+  
   ctx.save();
-  ctx.fillStyle = 'rgba(4, 120, 87, 0.9)'; // emerald-700
-  ctx.fillRect(W * 0.1, y, W * 0.8, barH);
-  ctx.fillStyle = '#fff';
-  ctx.font = 'bold ' + Math.round(barH * 0.5) + 'px system-ui';
+  // Fill the extra header space with a distinct brand color (emerald-700)
+  ctx.fillStyle = 'rgba(4, 120, 87, 1)';
+  ctx.fillRect(0, originalHeadH, W, extraH);
+  
+  ctx.fillStyle = '#ffffff';
+  ctx.font = 'bold ' + Math.round(extraH * 0.55) + 'px system-ui';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText('🔗 Take CBT/Quiz: ' + url, W / 2, y + barH / 2);
+  ctx.fillText('🔗 TAKE QUIZ: ' + url, W / 2, originalHeadH + (extraH / 2));
+  
   ctx.restore();
 };
