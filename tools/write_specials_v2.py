@@ -304,7 +304,7 @@ document.addEventListener('DOMContentLoaded', boot);
 # ---- CBT PROMPTS ----
 page('cbt-prompts.html', 'Question bank prompts', 'Copy-paste packs for any free chat. No AI API.',
      feature_card('Ten prompt packs — you paste them into a free chat',
-                  'Simple, Intermediate, Advanced, Enterprise 17-type, Self, Review, Graded, Reading article, Reading video, Reading pack. The studio never calls a paid model.',
+                  'Simple, Intermediate, Advanced, Auto-Graded Ultimate Pack, Self, Review, Graded, Reading article, Reading video, Reading pack. The studio never calls a paid model.',
                   ['Pick a pack + topic + count', 'Copy the prompt', 'Paste into ChatGPT / Gemini / Claude (your account)', 'Paste the CSV back into Quizzes'],
                   [('practice.html', 'Save the CSV as a quiz'), ('reading.html', 'Reading assignments')]) + '''
       <div class="card">
@@ -314,7 +314,7 @@ page('cbt-prompts.html', 'Question bank prompts', 'Copy-paste packs for any free
               <option value="simple">Simple (MCQ + T/F)</option>
               <option value="intermediate">Intermediate</option>
               <option value="advanced">Advanced</option>
-              <option value="enterprise">Enterprise 17-type</option>
+              <option value="enterprise">Auto-Graded Ultimate Pack</option>
               <option value="self">Self-Quiz</option>
               <option value="review">Review-Quiz</option>
               <option value="graded">Graded-Quiz</option>
