@@ -1554,7 +1554,7 @@ function startCompositeStage() {
 async function ensureMic(on) {
   if (on && !micStream) {
     try {
-      micStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1, sampleRate: { ideal: 48000 } }, video: false });
+      micStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: { ideal: true }, noiseSuppression: { ideal: true }, autoGainControl: { ideal: true }, channelCount: 1, sampleRate: { ideal: 48000 }, googEchoCancellation: true, googAutoGainControl: true, googNoiseSuppression: true, googHighpassFilter: true }, video: false });
       const micTrack = micStream.getAudioTracks()[0];
       if (micTrack) micTrack.addEventListener("ended", () => {
         micOn = false;
@@ -1925,6 +1925,7 @@ function loadRecLogo() {
     recLogo.src = data;
   } else {
     recLogo.src = "../assets/img/logo.png";
+    recLogo.onerror = () => { recLogo.src = "assets/icon-192.png"; };
   }
 }
 loadRecLogo();
@@ -1985,6 +1986,7 @@ on("#recBegin", "click", () => {
 
 function drawRecordingFrame() {
   const ctx = recCtx, W = recCanvas.width, H = recCanvas.height;
+  if(ctx) ctx.globalAlpha = 1.0;
   const baseHeadH = Math.round(H * 0.09);
   const footH = Math.round(H * 0.045);
   let cbtUrl = '';
@@ -2124,7 +2126,19 @@ async function startRecording() {
       const outType = activeRecorder.mimeType || mime || "video/webm";
       const ext = outType.includes("mp4") ? ".mp4" : ".webm";
       const fname = [safe(recMeta.brand || "Lesson"), safe(recMeta.subject || ""), safe(recMeta.topic || ""), safe(recMeta.klass || ""), new Date().toISOString().slice(0, 10)].filter(Boolean).join("_") + ext;
-      if (chunks.length) downloadBlob(new Blob(chunks, { type: outType }), fname);
+      if (chunks.length) {
+        const rawBlob = new Blob(chunks, { type: outType });
+        if (outType.includes("webm") && window.ysFixWebmDuration && window.HMG_REC_SESSION && window.HMG_REC_SESSION.startTs) {
+          const recordedDurationMs = Date.now() - window.HMG_REC_SESSION.startTs;
+          try {
+            window.ysFixWebmDuration(rawBlob, recordedDurationMs, function(fixedBlob) {
+              downloadBlob(fixedBlob || rawBlob, fname);
+            });
+          } catch(err) { downloadBlob(rawBlob, fname); }
+        } else {
+          downloadBlob(rawBlob, fname);
+        }
+      }
       /* Clear the mirrored IndexedDB chunks now that the recording is committed. */
       if (window.CDCrashSafe && window.CDCrashSafe.clearSession && window.HMG_REC_SESSION) {
         try { CDCrashSafe.clearSession(window.HMG_REC_SESSION.sessionId); } catch {}
@@ -2137,7 +2151,7 @@ async function startRecording() {
     toast("⏺ Recording started — " + ((activeRecorder.mimeType || mime || "webm").includes("mp4") ? "MP4" : "WebM") + " on this device when you stop", "ok", 5000);
       if (window.HMGREC && typeof window.HMGREC.paintFrame === "function") {
         
-    const introTime = 12;
+    const introTime = 15;
     const block = document.createElement('div');
     block.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.9);color:#fff;z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:system-ui;text-align:center';
     block.innerHTML = '<h1 style="font-size:3rem;color:#ffb347;margin:0">🎬 RECORDING STARTED</h1><p style="font-size:1.5rem;margin:10px 0">The branded intro is currently being recorded.</p><h2 style="font-size:5rem;margin:20px 0" id="hmgRecCount">' + introTime + '</h2><p style="font-size:1.5rem;color:#10b981">Please WAIT before teaching...</p>';
@@ -2195,21 +2209,26 @@ function stopRecording() {
   let si = 0, moved = false;
   let drag = false, sx = 0, sy = 0, ox = 0, oy = 0;
   sv.addEventListener("pointerdown", (e) => {
-    drag = true; moved = false; sv.setPointerCapture(e.pointerId);
+    drag = true; moved = false; 
+    try { sv.setPointerCapture(e.pointerId); } catch(err){}
     sx = e.clientX; sy = e.clientY;
     const r = sv.getBoundingClientRect(); ox = r.left; oy = r.top;
+    e.preventDefault(); // Prevent touch scroll/zoom issues on mobile
   });
-  sv.addEventListener("pointermove", (e) => {
+  window.addEventListener("pointermove", (e) => { // Bind to window so drag doesn't drop if pointer moves too fast
     if (!drag) return;
     if (Math.hypot(e.clientX - sx, e.clientY - sy) > 8) moved = true;
     if (!moved) return;
     sv.style.left = Math.max(2, Math.min(window.innerWidth - sv.offsetWidth - 2, ox + e.clientX - sx)) + "px";
     sv.style.top  = Math.max(2, Math.min(window.innerHeight - sv.offsetHeight - 2, oy + e.clientY - sy)) + "px";
     sv.style.right = "auto"; sv.style.bottom = "auto";
-  });
-  sv.addEventListener("pointerup", () => {
+    e.preventDefault();
+  }, { passive: false });
+  window.addEventListener("pointerup", (e) => {
+    if (!drag) return;
     drag = false;
-    if (!moved) { si = (si + 1) % sizes.length; sv.style.width = sizes[si] + "px"; }
+    try { sv.releasePointerCapture(e.pointerId); } catch(err){}
+    if (!moved && e.target === sv) { si = (si + 1) % sizes.length; sv.style.width = sizes[si] + "px"; }
   });
 })();
 
@@ -3986,9 +4005,23 @@ onRoomEvent = function (type, p) {
     if (hasHmg && S && S.startTs && !S.ending && !S.ending) {
       S.ending = true;
       S.endTs = Date.now();
+      try {
+        const block = document.createElement('div');
+        block.id = "hmgRecOutroBlock";
+        block.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.9);color:#fff;z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:system-ui;text-align:center';
+        block.innerHTML = '<h1 style="font-size:3rem;color:#ffb347;margin:0">🎬 FINISHING RECORDING</h1><p style="font-size:1.5rem;margin:10px 0">The branded outro is being attached. Please wait.</p><h2 style="font-size:5rem;margin:20px 0" id="hmgRecOutroCount">15</h2>';
+        document.body.appendChild(block);
+        let outroT = 15;
+        const iv = setInterval(() => {
+           outroT--;
+           const c = document.getElementById("hmgRecOutroCount");
+           if (c) c.textContent = outroT;
+           if (outroT <= 0) clearInterval(iv);
+        }, 1000);
+      } catch(e) {}
       const flyerMs = S.showFlyerMs || 3000;
-      const outroMs = S.outroMs || 12000;
-      const totalEndMs = 12000;
+      const outroMs = S.outroMs || 15000;
+      const totalEndMs = 15000;
       const endDeadline = Date.now() + totalEndMs;
       (function endLoop() {
         var remaining = endDeadline - Date.now();
@@ -3996,19 +4029,28 @@ onRoomEvent = function (type, p) {
           try {
             var W = recCanvas.width, H = recCanvas.height;
             HMGREC.drawOutroFrame(recCanvas, recCtx, W, H, Date.now() - S.endTs);
-            /* CBT link if available */
-            var cbtUrl = localStorage.getItem("hmg_cbt_link") || "";
-            if (cbtUrl && typeof window.drawCBTOverlay === "function") {
-              window.drawCBTOverlay(recCtx, W, H, cbtUrl);
-            }
-          } catch (e) {}
+                      } catch (e) {}
           requestAnimationFrame(endLoop);
           return;
         }
+        try { const b = document.getElementById("hmgRecOutroBlock"); if(b) b.remove(); } catch(e){}
+        // GENERATE THUMBNAIL OF SCENE 2 FOR SOCIAL MEDIA
+        try {
+           const thumbCanvas = document.createElement("canvas");
+           thumbCanvas.width = W || 1280;
+           thumbCanvas.height = H || 720;
+           const tctx = thumbCanvas.getContext("2d");
+           // draw Intro Frame at 10,000ms (10s) which is perfectly in the middle of Scene 2 (Teacher/Subject)
+           HMGREC.drawIntroFrame(thumbCanvas, tctx, thumbCanvas.width, thumbCanvas.height, 10000);
+           thumbCanvas.toBlob((blob) => {
+             downloadBlob(blob, "Thumbnail_" + Date.now() + ".jpg");
+           }, "image/jpeg", 0.95);
+        } catch(e) {}
         _origStopRec();
       })();
       return;
     }
+    try { const b = document.getElementById("hmgRecOutroBlock"); if(b) b.remove(); } catch(e){}
     _origStopRec();
   };
 
