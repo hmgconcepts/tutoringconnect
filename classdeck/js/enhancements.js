@@ -824,6 +824,37 @@ window.CDSecurity = CDSecurity;
   const btnPhoto = document.getElementById("hmgRecPhotoBtn");
   if(btnPhoto) btnPhoto.addEventListener('click', () => { const f = document.getElementById("hmgRecPhotoFile"); if(f) f.click(); });
   
+  
+  // Global Event Delegation for ALL file uploads to prevent broken bindings
+  document.addEventListener("change", async function(e) {
+    if (e.target && e.target.id === "hmgRecPhotoFile") {
+      const f = e.target.files && e.target.files[0];
+      if (!f) return;
+      const fr = new FileReader();
+      fr.onload = async (ev) => {
+        try {
+          const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = ev.target.result; });
+          const c = document.createElement("canvas");
+          const MAX_SIZE = 250;
+          let k = 1;
+          if (img.naturalWidth > MAX_SIZE || img.naturalHeight > MAX_SIZE) {
+             k = Math.min(1, MAX_SIZE / Math.max(img.naturalWidth, img.naturalHeight));
+          }
+          c.width = Math.round(img.naturalWidth * k) || 1;
+          c.height = Math.round(img.naturalHeight * k) || 1;
+          c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+          Store.set("hmg_rec_photo", c.toDataURL("image/jpeg", 0.6));
+          HMGREC._loadLogo();
+          const st = document.getElementById("hmgRecPhotoStatus");
+          if (st) st.textContent = "✓ teacher photo saved";
+          if(typeof toast === "function") toast("👤 Photo saved", "ok");
+        } catch(err) {
+          if(typeof toast === "function") toast("Photo error: " + err.message, "err");
+        }
+      };
+      fr.readAsDataURL(f);
+    }
+  });
   document.addEventListener("click", function (e) {
     if (e.target && e.target.id === "hmgRecBegin") { HMGREC.begin(); }
 
