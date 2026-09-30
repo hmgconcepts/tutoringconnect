@@ -857,24 +857,24 @@ Not sure</textarea>
 
 <!-- v6: full-screen teacher auth gate (signup / login / license) -->
 <!-- authGate removed: ADEWALE CLASSROOM DECK uses portal session only -->
-<script src="vendor/peerjs.min.js?v=42"></script>
-<script src="vendor/pdf.min.js?v=42"></script>
-<script src="vendor/qrcode.min.js?v=42"></script>
-<script src="js/common.js?v=42"></script>
-<script src="js/config.js?v=42"></script>
-<script src="js/portal-bridge.js?v=42"></script>
-<script src="js/license.js?v=42"></script>
-<script src="js/whiteboard.js?v=42"></script>
-<script src="js/webcast.js?v=42"></script>
-<script src="js/toolkit.js?v=42"></script>
-<script src="js/toolkit-data.js?v=42"></script>
-<script src="js/toolkit-data2.js?v=42"></script>
-<script src="js/toolkit-data3.js?v=42"></script>
-<script src="js/toolkit-ext.js?v=42"></script>
-<script src="js/security-config.js?v=42"></script>
-<script src="js/auth.js?v=42"></script>
-<script src="js/rtc.js?v=42"></script>
-<script src="js/teach-toolbar-fix.js?v=42"></script>
+<script src="vendor/peerjs.min.js?v=43"></script>
+<script src="vendor/pdf.min.js?v=43"></script>
+<script src="vendor/qrcode.min.js?v=43"></script>
+<script src="js/common.js?v=43"></script>
+<script src="js/config.js?v=43"></script>
+<script src="js/portal-bridge.js?v=43"></script>
+<script src="js/license.js?v=43"></script>
+<script src="js/whiteboard.js?v=43"></script>
+<script src="js/webcast.js?v=43"></script>
+<script src="js/toolkit.js?v=43"></script>
+<script src="js/toolkit-data.js?v=43"></script>
+<script src="js/toolkit-data2.js?v=43"></script>
+<script src="js/toolkit-data3.js?v=43"></script>
+<script src="js/toolkit-ext.js?v=43"></script>
+<script src="js/security-config.js?v=43"></script>
+<script src="js/auth.js?v=43"></script>
+<script src="js/rtc.js?v=43"></script>
+<script src="js/teach-toolbar-fix.js?v=43"></script>
 <div id="mTimer" class="modal-back">
   <div class="modal" style="max-width:360px">
     <h3 style="margin:0 0 10px">⏱ Class countdown</h3>
@@ -1075,6 +1075,10 @@ Not sure</textarea>
   <div class="modal" style="max-width:380px">
     <h3 style="margin:0 0 10px">🔊 Classroom noise meter</h3>
     <p style="font-size:12.5px;color:var(--text-dim);margin:0 0 10px">Shows a live loudness bar on the broadcast and warns when the room goes over your threshold.</p>
+    <div id="noiseGauge" style="background:var(--bg-2);border:1px solid var(--line);border-radius:10px;padding:10px;margin:0 0 10px">
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-dim)"><span>Live loudness</span><b id="noiseLevel" style="color:var(--accent)">0%</b></div>
+      <div style="height:12px;border-radius:6px;background:rgba(127,127,127,.25);overflow:hidden;margin-top:6px"><i style="display:block;height:100%;width:0%;background:#4ade80;border-radius:6px;transition:width .08s linear"></i></div>
+    </div>
     <label style="font-size:12px;color:var(--text-dim)">Alert threshold — <b id="noiseThresholdVal">70</b>%</label>
     <input class="input" id="noiseThreshold" type="range" min="10" max="100" value="70" style="margin:6px 0 12px" oninput="var v=document.getElementById('noiseThresholdVal');if(v)v.textContent=this.value" />
     <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -1118,11 +1122,11 @@ Not sure</textarea>
     </div>
   </div>
 </div>
-<script src="js/fix-webm-duration.js?v=42"></script>
-<script src="js/teach.js?v=42"></script>
-<script src="js/enhancements.js?v=42"></script>
-<script src="js/ecosystem-branding.js?v=42"></script>
-<script src="js/enterprise-enhanced.js?v=42"></script>
+<script src="js/fix-webm-duration.js?v=43"></script>
+<script src="js/teach.js?v=43"></script>
+<script src="js/enhancements.js?v=43"></script>
+<script src="js/ecosystem-branding.js?v=43"></script>
+<script src="js/enterprise-enhanced.js?v=43"></script>
 <div id="hmgEcosystemFooterCompact" style="max-width:100%;padding:0 14px"></div>
 </body>
 </html>
