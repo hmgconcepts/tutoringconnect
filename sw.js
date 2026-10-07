@@ -6,7 +6,7 @@
 // CLIENT build (builder.html / generator.js / wizard.js are generator-only and
 // must NOT be precached here). Each URL is cached individually so one missing
 // file never aborts the whole precache (cache.addAll is atomic).
-const CACHE = 'tc-shell-v12-20260828';   /* bumped: V39 CBT rich-text maths renderer, read-aloud, delivery randomisation, pinned passages */
+const CACHE = 'tc-shell-v14-20261007';   /* bumped: V45 round 9 — My quizzes page, CBT drafts/negative marking/receipts, keep-alive layer matrix, audit console, care list, nav V27 */
 
 // Files guaranteed to exist in every generated client studio.
 const CORE = [

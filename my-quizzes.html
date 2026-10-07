@@ -4,9 +4,9 @@
 <script src="assets/js/auth-guard.js?v=45"></script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Hour banks • ADEWALE CLASSROOM</title>
+<title>My quizzes &amp; CBTs • ADEWALE CLASSROOM</title>
 <meta name="robots" content="noindex,nofollow">
-<meta name="description" content="Hour banks — ADEWALE CLASSROOM">
+<meta name="description" content="Every quiz and CBT set for your classes — graded exams, practice papers and multi-subject sittings, with your attempts and best scores.">
 <meta name="theme-color" content="#0506ae">
 <meta name="author" content="HMG Technologies · HMG Concepts">
 <link rel="icon" type="image/svg+xml" href="assets/img/logo.png">
@@ -14,8 +14,8 @@
 <link rel="apple-touch-icon" href="assets/img/logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Source+Serif+4:wght@600;800&display=swap" rel="stylesheet">
-<meta property="og:title" content="Hour banks • ADEWALE CLASSROOM">
-<meta property="og:description" content="Hour banks — ADEWALE CLASSROOM">
+<meta property="og:title" content="My quizzes &amp; CBTs • ADEWALE CLASSROOM">
+<meta property="og:description" content="Every quiz and CBT set for your classes — graded exams, practice papers and multi-subject sittings, with your attempts and best scores.">
 <meta property="og:type" content="website">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="stylesheet" href="assets/css/style.css">
@@ -74,6 +74,7 @@
 <script src="assets/js/super.js?v=45"></script>
 <script src="assets/js/record-actions.js?v=45"></script>
 <script src="assets/js/receipts.js?v=45"></script>
+<script src="assets/js/messages-center.js?v=45"></script>
 <script src="assets/js/nav-model.js?v=45"></script>
 <script src="assets/js/app.js?v=45"></script>
 <script src="assets/js/rbac.js?v=45"></script>
@@ -87,6 +88,8 @@
 <script src="assets/js/legibility.js?v=45" defer></script>
 <script src="assets/js/ux-enhance.js?v=45" defer></script>
 <script src="assets/js/ops-desk.js?v=45"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style id="tc-brand">:root{--primary:#0506ae;--primary-dark:#0506ae;--primary-light:#964eec;--accent:#964eec;--gradient:linear-gradient(135deg,#0506ae,#964eec);--gradient-dark:linear-gradient(135deg,#0506ae,#964eec);--font:'Plus Jakarta Sans',system-ui,sans-serif;--sc-primary:#0506ae;--sc-accent:#964eec}</style>
 </head>
 <body>
 <div class="app-layout" data-require-role="any" id="app-layout">
@@ -99,7 +102,7 @@
   <div class="app-main">
     <header class="app-topbar">
       <button class="mobile-toggle" type="button" aria-label="Menu">☰</button>
-      <h1 class="app-page-title">Hour banks</h1>
+      <h1 class="app-page-title">My quizzes &amp; CBTs</h1>
       <div class="user-chip"><strong id="user-display-name" data-user-name></strong>
         <span id="user-display-role" data-user-role></span>
         <button class="btn btn-sm btn-ghost" id="btn-dark" type="button">Theme</button>
@@ -107,16 +110,17 @@
     </header>
     <main class="app-content">
       <section class="help-card page-intro">
-        <div class="page-intro-head"><strong>Hour banks</strong><span class="page-intro-badge" style="background:#334155">🎓 Staff only</span></div>
-        <p class="page-intro-what">Prepaid hours or lesson packs (TutorCruncher/Tutorbase parity). Each engagement has its own bank. Requires sign-in as a tutor, admin or owner. Families cannot open it and the database refuses their queries even if they try the URL directly.</p>
-        <p class="page-intro-who"><b>Who it is for.</b> Owner and admin. A parent sees only their own invoices, payments and receipts.</p>
-        <p class="page-intro-why"><b>Why it matters.</b> Cash flow keeps the studio alive. Because hours, rates and sessions are already in the system, the money side is arithmetic rather than guesswork.</p>
-        <details class="page-intro-how"><summary>How to use this page</summary><ol><li>Set your rates and packages once in the fee catalogue.</li><li>Generate the invoice from a booking or an hour bank — the maths is done for you.</li><li>Record each payment as it arrives and issue the receipt.</li><li>Reconcile the totals at month end against your bank.</li></ol></details>
-        <details class="page-intro-roles"><summary>What each role sees here</summary><ul><li><b>Owner:</b> Full access.</li><li><b>Tutor:</b> Full access for the learners and groups assigned to them, and nothing else.</li><li><b>Parent:</b> No access.</li><li><b>Learner:</b> No access.</li></ul></details>
-        <p class="page-intro-rel"><b>Related:</b> <a href="invoices.html">invoices</a> · <a href="payments.html">payments</a> · <a href="payment-history.html">payment history</a> · <a href="payment-plans.html">payment plans</a> · <a href="wallet.html">wallet</a> · <a href="fees.html">fees</a></p>
+        <div class="page-intro-head"><strong>My quizzes &amp; CBTs</strong><span class="page-intro-badge" style="background:#4338ca">🧪 Learners &amp; parents</span></div>
+        <p class="page-intro-what">Every computer-based test set for your classes, on one dedicated page — organised by nature. Graded papers (including UTME-style multi-subject sittings) sit at the top with their windows, your attempts and your best score; practice and review papers sit below. Graded CBTs also appear on your work board — in the homework list, marked with a CBT chip and a direct Start link — the moment your tutor publishes them, because the database files them there automatically.</p>
+        <p class="page-intro-who"><b>Who it is for.</b> Learners (their own papers) and parents (each linked child, via the child switcher on My children).</p>
+        <p class="page-intro-why"><b>Why it matters.</b> Before now a CBT set for your class only surfaced on the dashboard work board, mixed in with everything else. A dedicated page means a graded mock due tomorrow can never hide under a stack of homework.</p>
+        <details class="page-intro-how"><summary>How to use this page</summary><ol><li>Graded papers are at the top — check the window (opens / closes) and press <b>Start</b>.</li><li>Wrong-answer penalties (negative marking) are shown on the paper before you start — skip rather than guess blindly.</li><li>If your browser closes mid-paper, reopening it offers to <b>resume</b> your attempt — answers, flags and the timer all continue.</li><li>Practice and review papers never touch your scoresheet; sit them as often as you like.</li><li>Parents: open a child's papers from <a href="my-children.html">My children</a> → Quizzes.</li></ol></details>
+        <details class="page-intro-roles"><summary>What each role sees here</summary><ul><li><b>Learner:</b> every CBT aimed at their classes, by nature.</li><li><b>Parent:</b> the same for each linked child.</li><li><b>Staff:</b> the building tools live on <a href="practice.html">Quizzes</a>, <a href="cbt-multi.html">Multi-subject CBT</a> and <a href="cbt-results.html">CBT results</a>.</li></ul></details>
+        <p class="page-intro-rel"><b>Related:</b> <a href="dashboard.html">dashboard</a> · <a href="assignments.html">homework</a> · <a href="scoresheet.html">scoresheet</a> · <a href="progress-reports.html">report card</a> · <a href="reading.html">reading</a></p>
       </section>
-      <div id="crud-root"></div>
-      <script>document.addEventListener('DOMContentLoaded',()=>{ if(window.CRUD) CRUD.renderList('packages'); });</script>
+      <div id="myquizzes-root"><p class="muted">Loading your papers…</p></div>
+      <script src="assets/js/my-quizzes.js?v=45"></script>
+      <script>document.addEventListener('DOMContentLoaded',()=>{ if(window.MyQuizzes) MyQuizzes.render('myquizzes-root'); });</script>
     </main>
   </div>
 </div>

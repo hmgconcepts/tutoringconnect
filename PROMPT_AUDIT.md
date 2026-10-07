@@ -209,3 +209,279 @@ all 11 HTML pages, version.json, sw.js — byte-identical in both repos.
 **Deployment note (unchanged, and now critical):** these fixes exist in
 the workspace + ZIPs. A device still showing the old bar or the old join
 behaviour is serving an old snapshot — upload the new build and redeploy.
+
+# ROUND 8 — enterprise features from Google Classroom & the big meeting platforms (classdeck v14.0.0 / portal V44)
+
+Requested: (1) understudy Google Classroom and implement its enterprise
+features; (2) understudy Google Meet / Zoom / Teams / FreeConference / Zoho
+and implement their enterprise features on the ClassDeck; (3) navigate
+WITHIN a whiteboard page (scroll up/down), not only page-to-page; (4) PDF
+zoom with proper scrollbars; (5) students/parents must be able to message
+the tutor/admin; (6) teacher can enable a participant as assistant tutor;
+(7) every file updated across both repos.
+
+## Item 3 — scroll INSIDE a whiteboard page (whiteboard.js)
+
+A page used to be exactly one screen: `_clampView` pinned `y` to
+`[1-s, 0]` — anything drawn off-screen was unreachable. Now every page is
+a **long board, 3 screens tall** (1–8, clamped), with strokes still stored
+in board coordinates so old saved decks and live sync remain 100%
+compatible (legacy pages normalise to h=3; nothing moves).
+
+| Gesture | What it does now | Verified by |
+|---|---|---|
+| wheel / trackpad | scrolls down/up the long page (delta-mode aware) | W6 |
+| shift + wheel | pans sideways | W7 |
+| ctrl/⌘ + wheel | zoom anchored at the cursor (the point under the cursor never moves) | W8 |
+| middle mouse | grab-and-pan | W14 |
+| overlay scrollbars | always visible while there is somewhere to go; draggable thumbs | W10–W13 |
+| pinch (existing) | unchanged two-finger zoom/pan | (r5/v12 suites) |
+| PNG / PDF export | exports the WHOLE scrollable page, not just the visible window | W15–W17 |
+
+The PDF annotation overlay is exempt — it stays one screen so it remains
+glued to the PDF page underneath (W3), and its wheel is never hijacked
+(W9).
+
+## Item 4 — PDF zoom navigation (teach.js + style.css)
+
+Two real bugs: `.pdf-scroll` used flex `justify-content:center`, which
+pushes the left overflow of an oversized page **out of reach**, and the
+scrollbars were invisible. Fixed:
+
+- `.pdf-pagewrap { margin: 14px auto }` + `flex-start` — centred when it
+  fits, fully scrollable edge-to-edge when zoomed (P1–P2);
+- fat, always-visible scrollbars (WebKit + Firefox `scrollbar-color`) (P3);
+- `zoomTo()` re-anchors every zoom (buttons, pinch AND ctrl-wheel) to the
+  viewport centre instead of the page corner (P4–P6);
+- plain wheel keeps scrolling natively — no preventDefault without
+  ctrl/⌘ (P7–P8); arrows / PgUp / PgDn / Home / End when focused (P9);
+- the broadcast viewport (`getViewportRegion`) still follows the teacher's
+  scroll — the class sees exactly what the teacher sees (P10).
+
+## Item 6 — assistant tutor / co-host (rtc.js, teach.js, join.js)
+
+Zoom-style: the teacher taps 👑 on any admitted student.
+
+- `TeacherRoom.setCoHost(pid, on)` — registry `coHosts`, roster broadcasts
+  carry the flag, every change logged to attendance (A3–A5);
+- the promoted student gets a floating **Assistant tutor** panel: admit
+  all, mute all, lower hands, lock/unlock (A6, A16);
+- actions travel as `cohostAction` and are honoured **only** from
+  promoted peers — impersonation is ignored (A7, A21);
+- a co-host can kick but never themselves (A18–A19);
+- demotion is instant and total (A20).
+
+## Item 2 — meeting-platform enterprise gaps (deck)
+
+Research verdict: waiting room, lock, per-student mic/cam/screen, kick,
+polls, quizzes, hand raise, reactions, recording, captions, spotlight and
+the captain relay already existed. The true gaps, now closed:
+
+- **mute all** — one tap silences every student mic (A8);
+- **lower all hands** — class-wide, students' local hand state drops too
+  via `handSync` (A10–A13);
+- **attendance report** — the pre-existing CSV export is upgraded:
+  null-safe fields (no more `"undefined"` cells), CRLF line endings so
+  Excel opens it cleanly (A22–A24).
+
+## Item 5 — students/parents messaging the tutor/admin (V44)
+
+Before: `messages` was a one-way `to_role` note drop and the Messaging
+page was a staff-only WhatsApp/email link helper — a learner could not
+actually message anyone. Now:
+
+- `database/v44-messaging.sql`: `recipient` / `sender_name` / `read_at`
+  columns + pair/unread indexes + five security-definer RPCs —
+  `tc_message_directory/send/threads/thread/unread` (M1–M4, M9);
+- routing rules enforced IN THE DATABASE: families write to staff only
+  (M5); tutors reach staff + their own engagements' families, or anyone
+  with an existing thread (M6); admins reach everyone;
+- every send raises a notification row for the recipient (M8);
+- opening a thread marks it read — ✓ sent / ✓✓ read receipts (M7);
+- `messages.html` rebuilt as a two-pane Messages Center (threads,
+  directory picker, composer, Ctrl+Enter send) — `messages-center.js`
+  (MC1–MC13), XSS-escaped bodies (MC7);
+- **Messages is now for every signed-in role** — nav V26, aud `user`
+  (V4); unread badge on the nav link polls on every page via
+  notifications.js (V5, MC14);
+- the old WA/email/SMS capability survives as the directory's deep links.
+
+## Item 1 — Google Classroom enterprise features (portal)
+
+Already present from earlier rounds: rubrics, assignments, announcements,
+scoresheet/gradebook, originality-friendly CBT, analytics dashboards.
+Added this round:
+
+- **comment bank** (Google Classroom's most-loved grading feature): 💾
+  saves any phrase while marking, 💬 inserts one into any per-question or
+  overall comment; stored locally, works offline (C1–C6) — and a
+  save-handler shadowing bug was caught and fixed by the new tests;
+- **to-do bar**: the learner work board now computes what is due TODAY
+  (homework + quizzes + reading) plus an overdue count, with a one-tap
+  "Ask your tutor / admin" route into messages (C7–C8).
+
+## Item 7 — every file, both repos
+
+classdeck **v14.0.0** (build 17, pages `?v=48`, sw cache
+`hmg-classdeck-v14.0.0-cohost-scrolling-boards-pdf-nav`): whiteboard.js,
+teach.js, rtc.js, join.js, style.css, teach.html, all HTML pages,
+version.json, sw.js.
+Portal **V44** (pages `?v=45`, shell cache `tc-shell-v13-20261004`):
+v44-messaging.sql + complete-schema.sql, messages-center.js (new),
+messages.html, notifications.js, nav-model.js/.json (V26), app.js,
+cbt-marking.js, sw.js.
+All of it byte-identical in both repos (V8).
+
+## Round-8 QA tally (per repo, both repos green)
+
+    12 suites — 365/365 per repo × 2 repos
+    (258 pre-existing + 65 test_r8_deck + 42 test_r8_portal; nothing regressed)
+
+**Deployment note:** run `database/v44-messaging.sql` once on existing
+projects (idempotent). Devices still seeing single-screen boards or the
+old Messaging page are serving stale caches — upload the new build.
+
+
+---
+
+# ROUND 9 — platform health layers, advanced CBT, dedicated quiz pages
+
+Prompt (8 items, abridged): understudy gosaportal + hmgconcepts/gosaportal +
+schoolconnectdemo (per-layer keep-alive monitoring on Platform Health);
+understudy hmgacademycbtsystem + cbtgen (advanced CBT features); understudy
+lp25-dramaconnect (same); understudy gosa + CBT pages + Assignment page —
+explicitly: combining pre-existing CBTs into multi-subject CBTs, cumulative
+CBT score collation pushable to the report card, CBT assignments created in
+CBT pages that automatically appear on the assignment page; CBTs for an
+engagement must appear on DEDICATED pages by nature; only relevant features;
+expert sweep of every page/process; update every file across all repos.
+
+## Item 1 — per-layer keep-alive monitoring (GOSA parity)
+
+**The bug under the feature:** the workflows called `sc_keep_alive` — the
+fleet-compat shim — which wrote `sc_keepalive` + `tc_heartbeat` but BYPASSED
+the per-source ledger `tc_keepalive_sources`, so Platform Health could never
+say where the last ping came from. Fix is two-sided: (a) all three workflows
+now call `tc_keep_alive` with honest sources (`keep-supabase-alive.yml` ×4,
+`supabase-auto-restore.yml`, and `db-backup.yml` gained a soft-fail
+`keepalive-heartbeat` job, source `db-backup` — GOSA Layer-10 parity);
+(b) `sc_keep_alive` is re-declared (V45b bridge, appended at the very END of
+complete-schema.sql after the V45 status line — function re-declarations must
+come after earlier definitions) to ALSO upsert `tc_keepalive_sources`, so
+legacy fleet pings are visible in the matrix without breaking the Fleet
+Console contract. No `sc_keep_alive` reference remains under `.github/`.
+
+**The matrix itself:** new `assets/js/keepalive-layers.js` — a 14-layer
+catalog (`pg-cron, site-visit, github-actions, vercel-cron,
+google-apps-script, cron-job-org, edge-ping, manual-health-page,
+auto-restore-watchdog, db-backup, watchdog-selfheal, browser-recovery,
+fleet-console, external`), each with a plain-English fix hint. Freshness
+window 72 h, Supabase pause window 168 h, quorum ≥3 fresh sources. A
+`SOURCE_ALIASES` map canonicalises legacy source strings
+(fleet/hmg-fleet-console/fleet-actions→fleet-console, manual→manual-health-page,
+github-action→github-actions, apps-script→google-apps-script,
+uptime-robot→edge-ping, cron-job→cron-job-org) and the merge loop groups by
+canonical source (newest last_ping + summed counts). Health reads the
+`tc_keepalive_layers` RPC and merges alias rows. `platform-health.html` gets
+the layers card: KPI grid (last ping age, source, total pings, pause
+countdown, quorum) + a 14-row matrix — every layer shows, including
+never-run ones (⚪ Never), each with its fix. The manual-ping caption now
+names the canonical source `manual-health-page`.
+
+## Item 2 — advanced CBT (HMG Academy parity)
+
+- **Negative marking** (`assets/js/cbt.js`): `grade(questions, answers,
+  opts)` accepts `opts.negative_mark`; every WRONG non-blank answer deducts,
+  blanks are never penalised, total AND per-subject scores clamp at zero.
+  Returns `wrong`, `negative_mark`, `deducted`. Authored on both builders
+  (`practice.html` #neg, `cbt-multi.html` #mm-neg). The runner warns the
+  candidate BEFORE starting and shows a deduction line on completion.
+- **Draft autosave + resume** (`cbt-exam.html`): every input/change writes a
+  sidecar draft to `localStorage` (`tc-cbt-draft:CODE:student`, 24 h). On
+  reopen the runner offers Resume / Start fresh; resuming adopts the answers,
+  flags and position, and KEEPS the original started time so refresh can
+  never reset the clock. Visual restore pass re-selects radios/checkboxes.
+- **JAMB shortcuts:** N/→/PageDown next, P/←/PageUp prev, R flag, S submit,
+  A–E or 1–5 pick option (guarded on the visible set).
+- **Submission receipts** (cert_code, HMG parity): generated on-device
+  (`CBT-XXXX-XXXX-XXXX`), stored on the result row, shown on the completion
+  screen with a keep-this-code note — verifiable against the results audit.
+- **Combined answers at finish:** the draft sidecar merges with a fresh DOM
+  collect, so a widget that failed to re-render can never cost marks.
+
+## Item 3 — DramaConnect parity (suggestion box, care list, audit console)
+
+- **complaints.html** gains a suggestion box any signed-in member can use:
+  category (suggestion/complaint/question/praise) + optional anonymous flag —
+  anonymous rows store `submitted_by='anonymous'`, never the account id.
+  Staff triage (crud.js) gains the category + anonymous columns on top of the
+  existing priority/assignee/status flow. Schema columns ship in V45.
+- **attendance.html** gains the Care list card: `tc_absentee_followup` RPC
+  surfaces consecutive-absence learners with class, streak, last seen and
+  open follow-ups; staff log calls/notes from the row (or pick any learner).
+- **activity-log.html** rebuilt as an audit console: KPI snapshot (events
+  shown, today, distinct actors, deletes), db-side filters (actor / table /
+  action / date range) + client free-text, capped loads (500 shown, 5000
+  export), CSV export for external auditors. Read-only by design — the log
+  stays immutable.
+
+## Item 4 — combine CBTs, cumulative scores, auto-assignments
+
+- **Combine published papers** (cbt-multi.html): the 🧩 panel lists published
+  papers; ticked ones load straight from the database (`.in('id', ids)`) and
+  become subject blocks with their question objects intact — no CSV
+  round-trip, no copy-paste, no question loss. Renaming per sitting; editing
+  the textarea reverts that block to CSV mode (author override).
+- **Cumulative collation → report card** (desk-kit.js): every progress report
+  row gets **🧮 Pull CBT marks** — calls `tc_cbt_cumulative(learner, from,
+  to)`, merges per-subject averages into matching subject rows (score +
+  honest collation comment), appends subjects with CBT history but no row.
+  The report stays a draft; publishing stays a human decision.
+- **CBT → assignment automation (database):** trigger `trg_cbt_assignment_sync`
+  files a homework row (kind `cbt`, linked `cbt_exam_id`) the moment a Graded
+  CBT is published to an engagement. The assignments table (crud.js) shows
+  the kind column with an explainer; the learner work board (app.js) renders
+  CBT rows with a CBT chip, score when present, and a direct Start link.
+
+## Item 5 — CBTs on DEDICATED pages by nature
+
+New **my-quizzes.html** + `assets/js/my-quizzes.js` (nav V27, user audience,
+also linked from the work board and from each child card on my-children.html
+via `?learner=`): graded papers (incl. UTME-style multi-subject sittings)
+with windows/countdowns, attempts, best/last %, negative-marking badges and
+Start/Retake links — and practice/review papers in their own never-graded
+section. Data from the `tc_my_quizzes` security-definer RPC (attempts matched
+by learner id OR student number; parents verified database-side). KPI strip:
+graded / open now / practice / attempted.
+
+## Items 6–7 — relevance filter + expert sweep
+
+Only portable, self-contained patterns were taken (no paywalled APIs, no
+external services): layer matrix + auto-restore hygiene, negative marking,
+drafts, receipts, JAMB keys, combine-papers, cumulative collation, suggestion
+box, care list, audit console. Rejected as not portable or not ours:
+adaptive difficulty engines, camera proctoring backends, psychometric
+reporting, paper/OMR export. Sweep fixes shipped this round: workflow source
+ledger bypass (V45b), resume clock integrity, receipt persistence, twin
+parity on all touched surfaces, parse checks on every edited page/script.
+
+## Item 8 — every file, both repos
+
+Portal **V45** (pages `?v=45`, shell cache `tc-shell-v14-20261007`,
+nav V27): database/v45-health-cbt.sql + complete-schema.sql (incl. V45b
+bridge), 3 workflows, keepalive-layers.js (new), my-quizzes.js (new),
+activity-log.js (new), cbt.js, crud.js, desk-kit.js, app.js,
+nav-model.js/.json, sw.js, platform-health.html, cbt-exam.html,
+cbt-multi.html, practice.html, complaints.html, attendance.html,
+activity-log.html, my-children.html, my-quizzes.html (new). All touched
+surfaces byte-identical in both repos.
+
+## Round-9 QA tally (per repo, both repos green)
+
+    13 suites — 453/453 per repo × 2 repos
+    (365 round-8 baseline + 88 test_r9_portal; nothing regressed)
+
+**Deployment note:** run `database/v45-health-cbt.sql` once on existing
+projects (idempotent; complete-schema.sql already carries it for fresh
+installs). Re-deploy BOTH the workflows and the site — the keep-alive fix
+only takes effect when GitHub Actions runs the new workflow files.
