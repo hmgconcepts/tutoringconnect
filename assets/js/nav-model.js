@@ -58,9 +58,18 @@
       {
         "id": "messages",
         "href": "messages.html",
-        "label": "Messaging (WA / Email / SMS)",
+        "label": "Messages",
+        "title": "Messages",
         "icon": "💬",
-        "aud": "staff"
+        "aud": "user"
+      },
+      {
+        "id": "my_quizzes",
+        "href": "my-quizzes.html",
+        "label": "My quizzes",
+        "title": "My quizzes & CBTs",
+        "icon": "🧪",
+        "aud": "user"
       },
       {
         "id": "change_password",
@@ -1072,5 +1081,5 @@
     ]
   }
 ];
-  w.TC_NAV_MODEL_VERSION = 'V25';
+  w.TC_NAV_MODEL_VERSION = 'V27';
 })(window);

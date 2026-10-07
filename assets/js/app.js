@@ -1065,6 +1065,21 @@ const App = {
         '<div style="flex:1;min-width:180px"><b>' + icon + ' ' + esc(title) + '</b>' +
         (sub ? '<div class="muted" style="font-size:.82rem">' + esc(sub) + '</div>' : '') + '</div>' +
         (right || '') + (action || '') + '</div>';
+      /* V45 (round 9, item 4): homework rows that are really CBTs (created
+         automatically when a Graded CBT is published to this class) render
+         as a quiz chip with a direct Start link into the runner, and carry
+         the score when it exists. */
+      const homeworkRow = (x) => {
+        if (String(x.kind || 'homework') === 'cbt') {
+          return row('🧪', x.title, (x.engagement || '') + (x.due ? ' · due ' + String(x.due).slice(0, 10) : '') + ' · computer-based test',
+            x.score != null ? '<span class="badge" style="background:#e0e7ff;color:#3730a3">' + esc(x.score) + (x.max ? '/' + esc(x.max) : '') + '</span>' : '<span class="badge" style="background:#fef3c7;color:#92400e">CBT</span>',
+            '<a class="btn btn-primary btn-sm" href="cbt-exam.html?code=' + encodeURIComponent(x.code || '') + '">Start ➜</a>');
+        }
+        return row('📝', x.title,
+          (x.engagement || '') + (x.due ? ' · due ' + dueLabel(x.due) : '') + (x.status === 'marked' ? ' · marked' : ''),
+          x.score != null ? '<span class="badge" style="background:#dcfce7;color:#166534">' + esc(x.score) + (x.max ? '/' + esc(x.max) : '') + '</span>' : '',
+          '');
+      };
       let html = '';
       if (myEngagements.length) {
         html += '<div style="margin-bottom:10px"><b>🏫 My classes</b>' +
@@ -1072,18 +1087,32 @@ const App = {
             esc(e.name) + (e.kind && KIND_LABEL[e.kind] ? ' · ' + KIND_LABEL[e.kind] : '') + (e.subject ? ' · ' + esc(e.subject) : '') + '</span>').join('') +
           '</div>';
       }
+      /* v44 (round 8): a Google-Classroom-style to-do bar — what is due TODAY,
+         plus a one-tap way to message your tutor or the admin about any of it. */
+      const dueToday =
+        hw.filter(x => { const d = x.due_on || x.due; return d && String(d).slice(0, 10) === today.toISOString().slice(0, 10); }).length +
+        exams.filter(x => { const d = x.due_on || x.due || x.window_end; return d && String(d).slice(0, 10) === today.toISOString().slice(0, 10); }).length +
+        reading.filter(x => { const d = x.due_on || x.due; return d && String(d).slice(0, 10) === today.toISOString().slice(0, 10); }).length;
+      const overdue =
+        hw.filter(x => { const d = x.due_on || x.due; if (!d) return false; const dt = new Date(String(d).slice(0, 10) + 'T00:00:00'); return dt < today && String(x.status || '') !== 'marked'; }).length;
+      html += '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:4px 0 12px">' +
+        (dueToday ? '<span class="badge" style="background:#fef3c7;color:#92400e">📌 To-do today: ' + dueToday + '</span>' : '<span class="badge" style="background:#dcfce7;color:#166534">✅ Nothing due today</span>') +
+        (overdue ? '<span class="badge" style="background:#fee2e2;color:#991b1b">⏰ ' + overdue + ' overdue</span>' : '') +
+        '<a class="btn btn-sm" href="messages.html" style="margin-left:auto">✉️ Ask your tutor / admin</a>' +
+        '</div>';
       if (!hw.length && !exams.length && !reading.length && !library.length) {
         html += '<p class="muted">Nothing due right now — homework, quizzes, reading and class library items appear here the moment your tutor assigns them to you or your class. 🎉</p>';
       } else {
         if (hw.length) {
-          html += '<div style="margin-bottom:10px"><b>📝 Homework</b>' + chip(hw.length + ' to do', 'warn') + '</div>' +
-            hw.slice(0, 8).map(a => row(a.mode === 'physical' ? '📄' : '📝', a.title,
+          html += '<div style="margin-bottom:10px"><b>📝 Homework &amp; CBT assignments</b>' + chip(hw.length + ' to do', 'warn') + '</div>' +
+            hw.slice(0, 8).map(a => String(a.kind || 'homework') === 'cbt' ? homeworkRow(a) : row(a.mode === 'physical' ? '📄' : '📝', a.title,
               (a.engagement || '') + (a.group ? ' · whole class' : ' · set for you') + (a.mode === 'physical' ? ' · 📄 hand in on paper' : ''),
               a.due ? '<div style="font-size:.82rem;text-align:right"><b>' + esc(dueLabel(a.due)) + '</b><br><span class="muted">' + esc(String(a.due).slice(0, 10)) + '</span></div>' : '',
               '<span class="badge">' + esc(a.status || 'set') + '</span>')).join('');
         }
         if (exams.length) {
-          html += '<div style="margin-bottom:10px;margin-top:14px"><b>🧪 Quizzes & CBT papers</b>' + chip(exams.length + ' assigned') + '</div>' +
+          html += '<div style="margin-bottom:10px;margin-top:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap"><b>🧪 Quizzes & CBT papers</b>' + chip(exams.length + ' assigned') +
+            '<a href="my-quizzes.html" style="margin-left:auto;font-size:.82rem;font-weight:700">See all on My quizzes ➜</a></div>' +
             exams.slice(0, 8).map(x => row('🧪', x.title,
               (x.subject || x.kind || 'quiz') + ' · ' + (x.minutes || 40) + ' minutes',
               '',
