@@ -761,3 +761,200 @@ version.json, sw.js.
      + version-pin updates; includes runtime-DOM tests, not just greps)
     PostgreSQL harness: 6/6 scenarios clean (incl. V47 credentials +
     messaging behavior as the authenticated role)
+
+
+---
+
+# ROUND 12 — roaming made airtight, smart stream paste, bell deep links, WhatsApp replica
+
+Prompt (6 items, abridged): (1) The TURN key entered and saved on one
+device must be there after signing in on ANY other device — robustly, and
+other credentials likewise. (2) Streaming to Facebook/TikTok/YouTube etc:
+robust, self-contained, seamless; make entering credentials (rtmp etc)
+easy; enterprise features; imagine every error and fix it. (3) Clicking a
+message in the notification bell must lead directly to the message page.
+(4) Make the chat a replica of WhatsApp. (5) complete-schema.sql must be
+self-contained — running it alone must be enough. (6) Update every file
+across all repos.
+
+## Item 1 — why roaming could still fail, and the airtight fix
+
+Round 11 synced credentials through the portal session, but two real
+holes remained: (a) the deck discovered the portal endpoint by fetching
+../assets/js/config.js — which 404s when the deck is deployed on its own
+domain, silently disabling roaming; (b) credentials saved BEFORE the V47
+update ran were never in the cloud, so a pull on the new laptop found
+nothing — and the failure was silent. Fixes: the endpoint is now BAKED
+into classdeck/js/config.js at generation time (window.CLASSDECK.SUPABASE
+— per-repo, placeholder in the generator template, with the ../ fetch as
+fallback); a pull now AUTO-PUBLISHES any channel that exists locally but
+not in the cloud (the working setup wins, awaited so pull() = sync
+complete); a missing user_settings table is diagnosed precisely ("run
+database/v47-cloud-credentials.sql") instead of a vague "unreachable";
+and the deck login itself now signs in to the portal with the same
+email+password (fire-and-forget), with a visible ☁️ Cloud sync card in
+Settings (status, Sync now, Link account, Unlink). All proven in a VM:
+endpoint priority, 404 diagnosis, auto-publish, signIn/signOut, session
+storage under the supabase-js key.
+
+## Item 2 — entering stream credentials the easy way
+
+A ⚡ smart-paste box above the destinations: paste ANYTHING — a bare
+stream key, a full rtmp(s)://server/app/key URL, a URL with no key, or
+even text copied from a platform dashboard — and StreamKit.smartParse
+works out platform + server + key (keyword-guessed platform, unknown
+servers → Custom). Per-platform key-shape heuristics warn about
+wrong-looking keys (YouTube xxxx-xxxx-xxxx-xxxx, short Facebook/TikTok
+keys) without blocking. A 💾 Save settings button saves AND cloud-syncs
+in one press. Every relay call still times out; preflight, watchdog,
+auto-reconnect and presets from round 11 stand.
+
+## Item 3 — the bell leads somewhere (V48)
+
+Root cause: the dropdown navigates via the notification's url column —
+but no writer ever set it. V48: tc_message_send notifications now carry
+url='messages.html'; the CBT-submission trigger writes url (alongside the
+legacy link column); legacy rows are backfilled so OLD notifications
+become clickable too. Client-side, every item resolves a destination via
+url → link → title-derived map (message/cbt/invoice/booking/homework/
+complaint/birthday), shows a red unread dot and a "tap to open 💬" hint.
+Proven on PostgreSQL: message → messages.html, CBT → its results page
+with exam id, backfill verified.
+
+## Item 4 — the WhatsApp replica
+
+messages-center.js rewritten as a WhatsApp Web replica on the same v44
+RPCs: green app band, wallpaper chat area with doodle pattern, chat list
+with avatars + green unread pills + working search, bubbles with tails
+(outgoing #d9fdd3 / incoming white) with the timestamp INSIDE the bubble
+and ✓ sent / ✓✓ blue read ticks, TODAY/YESTERDAY date separators,
+composer with rounded field + emoji quick bar + round green send button
+(Enter sends, Shift+Enter newlines), quiet 30-s live refresh while not
+typing, scroll-to-bottom pill, and a phone layout where the chat slides
+over the list with a back arrow. Runtime-proven in a DOM sandbox: list,
+bubbles, ticks, separators, Enter-send, Shift+Enter, search.
+
+## Item 5 — complete-schema proven self-contained
+
+v48 merged; a mechanical containment check now runs in the battery: every
+function and table created by every migration file v44–v48 must exist in
+complete-schema.sql, which must end with the PostgREST reload and the V48
+status line. PostgreSQL harness: 7/7 scenarios clean (fresh, legacy
+shapes, re-run, migrations-standalone, V46/V47/V48 behavioral).
+
+## Item 6 — every file, both repos
+
+Portal V48 (pages ?v=48, shell cache tc-shell-v17-20261008):
+notifications.js, messages-center.js (rewrite), messages.html,
+database/v48-notification-links.sql (new) + complete-schema.sql,
+tools/v48_behavior.sql (new) + harness. ClassDeck v14.3.0 (pages ?v=51,
+sw hmg-classdeck-v14.3.0-cloudsync-smartpaste-notiflinks): config.js
+(baked endpoint), cloud-creds.js (endpoint priority, auto-publish, 404
+diagnosis, signIn/signOut), auth.js (login auto-link), stream-kit.js
+(smartParse, key shapes), teach.js + teach.html (cloud card, smart paste,
+save button), join.html, version.json, sw.js.
+
+## Round-12 QA tally (per repo, both repos green)
+
+    21 suites — 739/739 per repo × 2 repos
+    (+31 cloud/stream robustness, +42 bell/chat/schema-containment,
+     plus pin updates; includes runtime DOM/VM tests and a PostgreSQL
+     harness with 7 scenarios, two of them behavioral as the
+     authenticated role)
+
+---
+
+# ROUND 13 AUDIT (2026-10-08)
+
+Every binding item from the round-13 brief, traced to the exact files that
+implement it and the exact test that proves it. Battery: 22 suites,
+829/829 per repo × 2 repos; PostgreSQL harness 8/8.
+
+## Item 1 — stream/TURN token visible on a new device + Restore button
+
+| Piece | Where | Verified by |
+|---|---|---|
+| Auto-restore on login, visible confirmation | classdeck/js/auth.js (signIn→pull→toast) | test_r13_portal §classdeck |
+| ☁️ Restore from cloud (Tablet Live) | classdeck/teach.html #tlRestore + teach.js restoreCredsFromCloud | test_r13_portal §classdeck |
+| ☁️ Restore TURN key (relay card) | classdeck/teach.html #btnRestoreCreds | test_r13_portal §classdeck |
+
+## Item 2 — stream.html (Tablet Live) unambiguous
+
+Field-by-field table with examples (gateway URL/WHIP pattern, secret,
+stream name, format, fps, platform/key/server, smart paste, save/restore,
+remember, start/stop/check) + 5-step quick start + dry-run warning +
+downloadable field checklist: classdeck/stream.html §2. Verified:
+test_r13_portal (11 field checks + examples).
+
+## Item 3 — admin-data "–" stat cards
+
+Root cause: cards only filled after a manual scan. Fix: autoHeadCount()
+on load (head-count only), "x / total" semantics, skipped tables named,
+TABLES list grown (lms_lessons, reading_*, user_settings,
+push_subscriptions, stream_posts, gallery). Verified: test_r13_portal
+§admin-data (4 checks).
+
+## Item 4 — expert audit of stream + documents etc.
+
+stream.html: governance copy-paste replaced (intro, who, why, how, roles),
+staff-only posting gate, scheduled posts hidden from families, empty-state
+copy. documents.html: roles now state family read access. 18 further pages
+carrying the same governance boilerplate rewritten page-accurately
+(announcements, birthdays, broadcasts, complaints, directory, forum,
+gallery, helpdesk, inbox, leave, notifications, parent-meetings, polls,
+profile, rooms, substitutions, surveys, voting). Verified: test_r13_portal
+§stream/documents + grep sweeps.
+
+## Item 5 — classwork tutor UX
+
+KPI chips, filter toolbar, kind icons, due-date colours, skills chips,
+points badges, Export CSV (filtered) / Export PDF, staff-only posting card
+with family note, collapsible intro. classwork.html (rewritten around
+RecordActions). Verified: test_r13_portal §classwork (5 checks).
+
+## Items 6–9 — shelves: "unlinked" fixed + student visibility + GOSA parity
+
+DB (v49): is_tutor() NULL-status fix (the Unlinked root cause);
+tc_family_reads_engagement(); eresources/library family read widened,
+lms_lessons/resources family read created (published-only for LMS);
+tc_my_work() v2 returns library/eresources/resources/lms. UI: crud.js
+honest ref labels + ⚠ banner + form keep-value + refresh()/importCSV();
+schema labels "Class / group / cohort (who sees it)"; GOSA toolbar +
+collapsible intro on all four pages. Verified: harness scenario 8
+(asserts 1–15, 24–29) + test_r13_portal §crud §workboard §GOSA (29 checks).
+
+## Item 10 — notifications clearable + auto-popup
+
+DB (v49): own-delete policy (recipient/created_by/user_id), notif_clear()
+RPC (delete-own / hide-shared), cleared_by column. UI: per-item ✕,
+Clear all in dropdown + page, fetchRecent filters cleared rows, bell
+auto-OPENS on first-seen notification, push re-subscribe on init.
+Verified: harness scenario 8 (asserts 16–23) + test_r13_portal
+§notifications (12 checks).
+
+## Item 11 — reading links visible + tickable
+
+DB (v49): reading_items/reading_progress family read; learner own-write
+progress. UI: reading.html renders items as Open ↗ links with ✓ I read
+this (upsert reading_progress), staff-only setter card, collapsible intro.
+Verified: harness scenario 8 (asserts 8–9, 14–15) + test_r13_portal
+§reading (4 checks).
+
+## Item 12 — every file, both repos
+
+Portal V49 (pages ?v=49, shell tc-shell-v18-20261008): crud.js,
+notifications.js, app.js, classwork/reading/stream/documents + 4 shelf
+pages + admin-data.html + 18 intro rewrites, database/v49 (new) +
+complete-schema.sql, tools/v49_behavior.sql (new) + harness scenario 8.
+ClassDeck v14.4.0 (pages ?v=52, sw
+hmg-classdeck-v14.4.0-restore-family-library-gosa): teach.js, teach.html,
+auth.js, stream.html, version.json, sw.js. Twin synced (generator mirror +
+identity re-bake + SEO); suites re-whitelisted for the new versions;
+test_v27/v28 rot repaired to test intent. ZIPs rebuilt.
+
+## Round-13 QA tally (per repo, both repos green)
+
+    22 suites — 829/829 per repo × 2 repos
+    (+94 round-13 portal checks, plus pin updates; includes runtime
+     DOM/VM tests and a PostgreSQL harness with 8 scenarios, one of them
+     a 29-assertion behavioral run as the authenticated role)
