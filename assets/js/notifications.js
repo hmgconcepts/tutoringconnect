@@ -17,9 +17,15 @@ const Notifications = {
     this.sw = serviceWorkerRegistration || null;
     if ('Notification' in window) this.permission = Notification.permission;
     this.bindBell();
+    try { const r = await this.sb.auth.getUser(); this._uid = (r.data && r.data.user && r.data.user.id) || ''; } catch(_) { this._uid = ''; }
     await this.startRealtimeListener();
     await this.refreshUnreadCount();
     if (!this._pollTimer) this._pollTimer = setInterval(() => this.refreshUnreadCount().catch(()=>{}), 30000);
+    /* V49 (round 13, item 10): devices must re-register for push after the
+       app is installed / a new device signs in — subscribeToPush() is
+       idempotent (reuses the existing browser subscription) and refreshes
+       the stored subscription row so server-side pushes reach it. */
+    if (this.permission === 'granted') { try { await this.subscribeToPush(); } catch(_) {} }
     try { this.loadDropdownItems(); } catch(_) {}
     try { await this.renderPageList(); } catch(_) {}
     return this;
@@ -145,6 +151,65 @@ const Notifications = {
     this.loadDropdownItems();
   },
 
+  /* V49 (round 13, item 10): auto-popup — when a notification the user has
+     never seen arrives (realtime or the 30s poll), open the bell dropdown
+     by itself so it is impossible to miss, even on a fresh install. */
+  openDropdown() {
+    const dd = document.getElementById('notif-dropdown');
+    if (!dd || dd.classList.contains('show')) return;
+    dd.classList.add('show');
+    this.loadDropdownItems();
+  },
+
+  _seenKey() { return 'tc_notif_last_seen_' + (this._uid || (window.TC_PROFILE && TC_PROFILE.id) || 'anon'); },
+
+  _maybeAutoPopup(items) {
+    try {
+      if (!items || !items.length) return;
+      const key = this._seenKey();
+      const latest = String(items[0].id || '');
+      if (!latest) return;
+      const stored = localStorage.getItem(key);
+      localStorage.setItem(key, latest);
+      if (stored === null) return;          /* first run on this device — don't pop */
+      if (stored === latest) return;        /* nothing new */
+      if (document.visibilityState === 'hidden') return; /* SW push covers background */
+      this.openDropdown();
+      const fresh = items.filter(n => String(n.id) !== stored).slice(0, 2);
+      fresh.forEach(n => this.showInApp(n.title || 'Notification', n.body || '', 'info', n.url || 'notifications.html'));
+    } catch (_) {}
+  },
+
+  /* V49 (round 13, item 10): CLEAR. Own rows are deleted; shared broadcast
+     rows are hidden for me only (cleared_by), server-side in notif_clear(). */
+  async clearOne(id) {
+    if (!this.sb || !id) return;
+    try {
+      const { data, error } = await this.sb.rpc('notif_clear', { p_ids: [id] });
+      if (error) throw error;
+      if (typeof toast === 'function') toast('Cleared', 'success');
+    } catch (e) {
+      try { await this.sb.from('notifications').delete().eq('id', id); } catch(_) {}
+    }
+    this.refreshUnreadCount().catch(()=>{});
+    this.loadDropdownItems().catch(()=>{});
+  },
+
+  async clearAll() {
+    if (!this.sb) return;
+    if (!confirm('Clear all notifications for you? Your own items are deleted; shared announcements are hidden from your bell only (other users keep theirs).')) return;
+    try {
+      const { data, error } = await this.sb.rpc('notif_clear', {});
+      if (error) throw error;
+      if (toast) toast('All notifications cleared ✅', 'success');
+    } catch (e) {
+      if (toast) toast('Could not clear: ' + (e.message || e), 'danger');
+      return;
+    }
+    this.refreshUnreadCount().catch(()=>{});
+    this.loadDropdownItems().catch(()=>{});
+  },
+
   closeDropdown() {
     const dd = document.getElementById('notif-dropdown');
     if (dd) dd.classList.remove('show');
@@ -164,18 +229,38 @@ const Notifications = {
         list.innerHTML = '<div class="toast-msg" style="padding:24px;text-align:center">No notifications yet.</div>';
         return;
       }
-      list.innerHTML = items.map(n => `
-        <div class="notif-item" data-id="${this._esc(n.id)}" data-url="${this._esc(n.url || '')}" tabindex="0" role="button">
-          <div class="notif-item-title">${(typeof esc==='function'?esc:this._esc)(n.title)}</div>
+      /* V48: every notification is clickable and LEADS SOMEWHERE. New rows
+         carry a url column; older rows may carry a link column; anything
+         older still gets a destination derived from its title, so no bell
+         item is ever a dead end again (round-12 item 3). */
+      const uid = (window.TC_PROFILE && TC_PROFILE.id) || '';
+      list.innerHTML = items.map(n => {
+        const target = this.linkFor(n);
+        const unread = !(n.read_by || []).includes(uid);
+        return `
+        <div class="notif-item${unread ? ' notif-unread' : ''}" data-id="${this._esc(n.id)}" data-url="${this._esc(target)}" tabindex="0" role="button" title="${target ? 'Open' : 'Notification centre'}" style="position:relative;padding-right:30px">
+          <button type="button" data-clear="${this._esc(n.id)}" title="Clear this notification" aria-label="Clear this notification" style="position:absolute;right:6px;top:6px;border:0;background:transparent;color:#94a3b8;font-size:14px;line-height:1;cursor:pointer;padding:4px;border-radius:6px">✕</button>
+          <div class="notif-item-title">${unread ? '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#dc2626;margin-right:6px;vertical-align:1px"></span>' : ''}${(typeof esc==='function'?esc:this._esc)(n.title)}</div>
           <div class="notif-item-msg">${(typeof esc==='function'?esc:this._esc)(n.body || '')}</div>
-          <div class="notif-item-time">${timeAgo(n.created_at)}</div>
-        </div>`).join('');
+          <div class="notif-item-time">${timeAgo(n.created_at)}${target ? ' · tap to open ' + this.linkIcon(target) : ''}</div>
+        </div>`;
+      }).join('');
       // Wire up the click handlers (more reliable than inline onclick)
       list.querySelectorAll('.notif-item').forEach(el => {
         el.addEventListener('click', (e) => {
           e.preventDefault();
           e.stopPropagation();
-          this.openItem(el.getAttribute('data-id'), el.getAttribute('data-url'));
+          const id = el.getAttribute('data-id');
+          this._lastClicked = items.find((x) => String(x.id) === String(id)) || null;
+          this.openItem(id, el.getAttribute('data-url'));
+        });
+      });
+      /* V49: per-item clear buttons must not trigger the row's open action. */
+      list.querySelectorAll('[data-clear]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          this.clearOne(btn.getAttribute('data-clear'));
         });
       });
     } catch (err) {
@@ -200,8 +285,39 @@ const Notifications = {
     } catch(e) {}
     this.closeDropdown();
     this.refreshUnreadCount().catch(()=>{});
-    const target = String(url || '').trim();
+    let target = String(url || '').trim();
+    if (!target || !/^[a-z0-9-]+\.html/i.test(target)) target = this.linkFor(this._lastClicked || null) || target;
     if (target) location.href = target;
+  },
+
+  /* V48: where does this notification lead? url column → link column →
+     derived from the title. Returns '' only when there is genuinely no
+     sensible destination (the notification centre is the fallback UI). */
+  linkFor(n) {
+    const t = (x) => String(x == null ? '' : x).trim();
+    if (n && t(n.url)) return t(n.url);
+    if (n && t(n.link)) return t(n.link);
+    const title = n ? t(n.title).toLowerCase() : '';
+    if (!title) return '';
+    if (/^new message from|message|reply/.test(title)) return 'messages.html';
+    if (/cbt submitted|quiz submitted|scored/.test(title)) return 'cbt-results.html';
+    if (/invoice|payment|receipt|fee/.test(title)) return 'invoices.html';
+    if (/booking|session|class (starting|reminder)|reminder/.test(title)) return 'sessions.html';
+    if (/homework|assignment/.test(title)) return 'assignments.html';
+    if (/complaint|concern/.test(title)) return 'complaints.html';
+    if (/suggestion/.test(title)) return 'suggestions.html';
+    if (/birthday/.test(title)) return 'birthdays.html';
+    return 'notifications.html';
+  },
+
+  linkIcon(href) {
+    const h = String(href || '');
+    if (h.startsWith('messages.html')) return '💬';
+    if (h.startsWith('cbt-results')) return '🧪';
+    if (h.startsWith('invoices')) return '🧾';
+    if (h.startsWith('sessions')) return '📅';
+    if (h.startsWith('assignments')) return '📚';
+    return '➜';
   },
 
   async fetchRecent(limit = 20) {
@@ -213,7 +329,10 @@ const Notifications = {
         .order('created_at', { ascending: false })
         .limit(limit);
       if (error) return [];
-      return (data || []).filter(n => Notifications.allowedForMe(n));
+      const uid = this._uid || (window.TC_PROFILE && TC_PROFILE.id) || '';
+      return (data || [])
+        .filter(n => Notifications.allowedForMe(n))
+        .filter(n => !uid || !Array.isArray(n.cleared_by) || !n.cleared_by.includes(uid));
     } catch(e) { return []; }
   },
 
@@ -274,6 +393,7 @@ const Notifications = {
     const unread = items.filter(n => !(n.read_by || []).includes(user?.id || '')).length;
     if (unread > 0) { badge.textContent = unread > 99 ? '99+' : String(unread); badge.style.display = 'flex'; }
     else { badge.style.display = 'none'; }
+    this._maybeAutoPopup(items);
     try { await this.renderPageList(items, user?.id || ''); } catch (e) {}
   },
 
@@ -291,12 +411,19 @@ const Notifications = {
       list.innerHTML = '<div class="card"><h3 style="margin-top:0">No notifications yet</h3><p>When staff send announcements, broadcasts, polls or result updates, they will appear here.</p></div>';
       return;
     }
-    list.innerHTML = items.map(n => {
+    list.innerHTML =
+      '<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">' +
+        '<button type="button" id="notif-page-markread" class="btn btn-outline btn-sm">✓ Mark all read</button>' +
+        '<button type="button" id="notif-page-clearall" class="btn btn-outline btn-sm">🗑 Clear all</button>' +
+        '<span class="muted" style="font-size:.82rem;align-self:center">Clearing removes your own items and hides shared announcements for you only.</span>' +
+      '</div>' +
+      items.map(n => {
       const unread = !uid || !Array.isArray(n.read_by) ? true : !n.read_by.includes(uid);
       const channels = (() => { try { const c = JSON.parse(n.channels || '[]'); return Array.isArray(c) ? c : []; } catch(_) { return []; } })();
       const icon = n.priority === 'high' || n.priority === 'urgent' ? '🚨' : (n.audience === 'student' || n.audience === 'students' ? '🎓' : (n.audience === 'parent' || n.audience === 'parents' ? '👨‍👩‍👧' : '📢'));
       return `
-        <div class="notif-entry ${unread ? 'unread' : ''}" data-id="${this._esc(n.id)}" data-url="${this._esc(n.url || '')}" tabindex="0" role="button">
+        <div class="notif-entry ${unread ? 'unread' : ''}" data-id="${this._esc(n.id)}" data-url="${this._esc(n.url || '')}" tabindex="0" role="button" style="position:relative;padding-right:34px">
+          <button type="button" data-clear="${this._esc(n.id)}" title="Clear this notification" aria-label="Clear this notification" style="position:absolute;right:8px;top:8px;border:0;background:transparent;color:#94a3b8;font-size:14px;line-height:1;cursor:pointer;padding:4px;border-radius:6px">✕</button>
           <div class="notif-entry-icon">${icon}</div>
           <div class="notif-entry-body">
             <div class="notif-entry-title">${this._esc(n.title || 'Notification')} ${unread ? '<span class="badge badge-success">new</span>' : ''}</div>
@@ -312,6 +439,16 @@ const Notifications = {
         this.openItem(el.getAttribute('data-id'), el.getAttribute('data-url'));
       });
     });
+    list.querySelectorAll('[data-clear]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault(); e.stopPropagation();
+        this.clearOne(btn.getAttribute('data-clear'));
+      });
+    });
+    const markAll = list.querySelector('#notif-page-markread');
+    if (markAll) markAll.onclick = () => this.markAllRead();
+    const clearAll = list.querySelector('#notif-page-clearall');
+    if (clearAll) clearAll.onclick = () => this.clearAll();
   },
 
   async markAllRead() {
