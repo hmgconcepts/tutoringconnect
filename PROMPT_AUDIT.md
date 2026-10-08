@@ -485,3 +485,176 @@ surfaces byte-identical in both repos.
 projects (idempotent; complete-schema.sql already carries it for fresh
 installs). Re-deploy BOTH the workflows and the site — the keep-alive fix
 only takes effect when GitHub Actions runs the new workflow files.
+
+
+---
+
+# ROUND 9 FIELD FIX — "ERROR: 42703: column \"recipient\" does not exist"
+
+Field report: running complete-schema.sql on an existing project aborts
+with `column "recipient" does not exist`. Root cause class: the schema
+creates tables with `create table if not exists`, so on an EXISTING
+database the CREATE is skipped and the table keeps its OLD shape — any
+index, policy or SQL-language function body that references a
+version-added column BEFORE the `alter table ... add column if not exists`
+that upgrades it kills the whole run (Supabase's SQL editor aborts on the
+first error). Fresh installs never see it; upgrades always did.
+
+## Fixes (complete-schema.sql + v45-health-cbt.sql)
+
+1. **messages upgrade-order guard** — the V44 columns (recipient,
+   sender_name, read_at) are now ALTERed in immediately after the base
+   create table, BEFORE the two indexes that reference them (the field
+   report). The V44 section's own alters stay (idempotent no-ops).
+2. **cbt_results guard before tc_cbt_marking_queue** — that function is
+   `language sql`, so Postgres validates its column references at CREATE
+   time; candidate_name / pending_count / marking_status are now
+   guaranteed before it (previously only guaranteed 1,300 lines later).
+3. **Ten drop-policy guards** — library_items (4), eresources (4) and
+   tc_blog_comments (2) had `create policy` without `drop policy if
+   exists`, so RE-RUNNING the schema aborted with "policy already
+   exists". All 201 create-policy statements are now drop-guarded.
+4. **v45-health-cbt.sql self-sufficiency** — the assignment-sync trigger
+   lists status/is_open/engagement_id/quiz_kind/title/close_at/questions
+   in `UPDATE OF`, which requires every column to exist at CREATE TRIGGER
+   time. The migration now guarantees the version-added ones itself
+   (complete-schema.sql already did, earlier in the file).
+
+## New permanent tooling (both repos)
+
+- **tools/check_schema_order.py** — static upgrade-order checker. A real
+  SQL tokenizer (comments, $$-bodies, string literals all handled) tracks
+  which columns each table is guaranteed to have at every point in the
+  file, then verifies every index, policy, SQL-function body and view
+  only references columns that are ALTER-guaranteed BEFORE that point.
+  Version-added columns (proven by the file itself carrying a later
+  ALTER) are the flag condition. Catches the exact field-report class;
+  negative control (guards stripped) proves it fires.
+- **tools/pg_stubs.sql + tools/gen_legacy_shape.py +
+  tools/verify_schema_pg.sh** — empirical harness: runs the REAL
+  complete-schema.sql against a local PostgreSQL in four scenarios —
+  FRESH (empty db), LEGACY (146 tables pre-created in their old shapes:
+  every version-added column removed), RE-RUN (twice, idempotency), and
+  MIGRATIONS (v44 + v45 standalone on legacy). All four report 0 errors
+  on both repos. Exits 77 (skip) where PostgreSQL is unavailable.
+- **Battery: test_r9_schema (16 checks)** — checker passes + negative
+  control fires + guards present and positioned + all 201 policies
+  drop-guarded + the four pg scenarios. 469/469 per repo.
+
+## What the reporter should do
+
+Re-run the NEW complete-schema.sql on the project that errored — it is
+now safe on legacy databases AND re-runnable (idempotent). No manual
+cleanup of the half-applied run is needed: every statement is
+`if not exists` / `create or replace` / drop-guarded, so re-running from
+the top converges.
+
+
+---
+
+# ROUND 10 — laptop mic fix, GOSA-parity CBT console, student-portal CBT placement
+
+Prompt (5 items, abridged): (1) ClassDeck mic dead on the reporter's laptop
+while Google Meet works on the same laptop and the deck works on their
+tablet — audit, diagnose, fix robustly. (2) Implement the GOSA/School
+Connect "CBT / Online Exams" features — Archive Recovery Center (V12.7),
+filtering/sorting, arrangement by type/kind. (3) CBTs set for an engagement
+should appear on the student HOMEWORK/CLASSWORK page, not just the homepage;
+clarify the purpose of "My quizzes" (staff saw it and had no use for it).
+(4) GOSA's automatic CBT→assignment mirroring is robust and seamless —
+match it. (5) Update every file across all repos.
+
+## Item 1 — the laptop mic (ClassDeck v14.1 "MicDoctor")
+
+**Diagnosis.** The teacher path requested `channelCount: 1` — an EXACT
+constraint (bare values are exact in getUserMedia) — plus a 48 kHz ideal
+and Chrome-only `goog*` flags. Laptop drivers that cannot satisfy exact
+constraints (Windows communications devices, some Realtek/BT stacks)
+reject the entire request; the catch then showed a *permission* message,
+so nobody knew what actually failed. Tablets worked because their drivers
+accept mono; Google Meet worked on the same laptop because it never pins
+exact constraints. Two further laptop-only failure modes had no detection
+at all: pages opened over http:// (desktop browsers disable mediaDevices
+entirely) and streams that open but carry silence (hardware mic-mute key,
+zero input volume, wrong OS device) — the failure Meet detects with a
+level meter.
+
+**Fix (classdeck/js/rtc.js MicKit + teach.js + join.js).** A constraint
+LADDER that never uses exact values (preferred-device → default with
+processing → plain `{audio:true}`), permission-denial aborts (constraints
+cannot fix permissions), precise error classification (NotAllowed /
+NotFound / NotReadable / Overconstrained / insecure-context, each with an
+actionable message), a remembered device choice, and a Web-Audio level
+watchdog that raises `silence` once when an enabled, unmuted track has
+never produced signal. Teacher side gets a MicDoctor banner (Fix mic +
+device picker + hearing-you confirmation) whose recovery re-feeds the
+live stage stream (`setStageStream` re-calls every student safely);
+student `shareMic` uses the same ladder and surfaces `micSilent` events
+into join.js guidance. The watchdog stops on every teardown path.
+
+## Item 2 — CBT console on the Quizzes page (GOSA parity)
+
+New `assets/js/cbt-console.js`, mounted on practice.html (fetch widened
+60 → 500 papers): filter bar (search / subject / class / kind / identity
+mode / single-vs-multi / status / active-archived-all view / sort by
+newest-oldest-title-code), papers ARRANGED BY NATURE — 🔴 Graded · 📝
+Drafts · 🧪 Practice · 🔵 Review · 📦 Archived — each group with a count
+chip, explainer line, state badge, multi-subject and negative-marking
+badges, windows, and the full CBTManage action set. The 🗃️ Archive
+Recovery Center (GOSA V12.7) ports in full: view archived/active/all,
+restore ALL, restore only the filtered-visible ones, undo the last bulk
+action, export archived papers as a portable JSON backup, import a backup
+back in, and an advanced restore-by-filter panel (subject / class / kind,
+blank = match all). (GOSA term/session concepts were adapted out — a
+tutoring studio organises by engagement, not term.)
+
+## Item 3 — where CBTs appear for students (the expert call)
+
+A CBT set for a class is **work due**, so it now lives wherever homework
+lives, and it is differentiated by nature everywhere it appears:
+
+- **Homework page (assignments.html) is role-aware.** Learners and parents
+  get a new view (`assets/js/homework-student.js`, fed by `tc_my_work`):
+  *Due next* — homework and CBT papers in ONE soonest-first list (CBT rows
+  carry a CBT chip + Start link); *CBT papers by nature* — 🟢 Live now /
+  🕓 Upcoming / 🧪 Practice / 🔒 Closed; *Done & marked* with scores.
+  Staff keep the marking workbench below.
+- **My quizzes is now a FAMILY page.** It was invisible to the families it
+  was built for (rbac deny-by-default) and cluttered staff menus — the
+  exact confusion reported. rbac.js lists it under FAMILY_READ; a new nav
+  audience `family` (nav.js) keeps it out of tutor/admin menus while the
+  page itself stays reachable; nav model → V28.
+- Work board cross-links Homework page · My quizzes.
+
+## Item 4 — seamless CBT → assignment automation (V46)
+
+`tc_sync_cbt_assignment()` is now a full lifecycle sync, behaviorally
+verified on PostgreSQL (tools/v46_behavior.sql): publish → mirror with
+sit link + summed max score; rename/close-date/max changes → mirror
+follows; archive → mirror withdrawn; restore → mirror returns; delete →
+mirror removed (no orphans, ever); practice/unclassed papers never
+mirror. `tc_my_work` v3 feeds the homework page with windows,
+multi-subject flag and negative-marking, and drops archived papers.
+Migration: `database/v46-cbt-automation.sql` (self-sufficient guards;
+also appended to complete-schema.sql).
+
+## Item 5 — every file, both repos
+
+Portal V46 (pages `?v=46`, shell cache `tc-shell-v15-20261008`, nav V28):
+practice.html, assignments.html, my-quizzes.html, app.js, nav.js, rbac.js,
+nav-model.js/.json, cbt-console.js (new), homework-student.js (new),
+database/v46-cbt-automation.sql + complete-schema.sql, sw.js.
+ClassDeck v14.1.0 (pages `?v=49`, sw
+`hmg-classdeck-v14.1.0-micdoctor-cbt-console-homework`): rtc.js, teach.js,
+join.js, teach.html, join.html, version.json, sw.js.
+
+## Round-10 QA tally (per repo, both repos green)
+
+    16 suites — 564/564 per repo × 2 repos
+    (469 round-9 baseline + 27 test_r10_mic + 67 test_r10_portal + 1 pin update)
+    PostgreSQL harness: 5/5 scenarios clean (incl. V46 behavioral asserts)
+
+**Deployment note:** run `database/v46-cbt-automation.sql` once on
+existing projects (idempotent; complete-schema.sql already carries it for
+fresh installs) and re-upload the ClassDeck — the mic fix only takes
+effect when the new v49 assets are served.
