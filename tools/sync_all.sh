@@ -39,6 +39,12 @@ for f in sorted(os.listdir(AC)):
     p = os.path.join(AC, f)
     s = open(p, encoding='utf-8').read()
     o = s
+    # round-13 fix: the old remove-then-insert was not byte-idempotent —
+    # every sync could leave one more newline before the brand style, so
+    # the twin check kept diverging on a blank line. Remove the style
+    # TOGETHER WITH all whitespace between it and </head>, then insert the
+    # canonical single form. Running it twice now yields identical bytes.
+    s = re.sub(r'<style id="tc-brand">.*?</style>\s*(?=</head>)', '', s, flags=re.S)
     s = re.sub(r'<style id="tc-brand">.*?</style>', '', s, flags=re.S)
     s = re.sub(r'<meta name="theme-color" content="#[0-9a-fA-F]{3,6}">',
                '<meta name="theme-color" content="#0506ae">', s)

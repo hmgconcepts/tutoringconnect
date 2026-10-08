@@ -91,7 +91,9 @@ for (const deny of ['messages', 'helpdesk', 'directory', 'birthdays', 'timezones
      'rbac: family deny covers ' + deny);
 }
 ok(/'safeguarding', 'application-links', 'activity-log'/.test(rbac), 'rbac: staff deny covers admin pages');
-ok(/SHELL = \['dashboard', 'profile', 'change-password', 'notifications',\n                   'inbox', 'offline', 'install', 'about',\n                   'feature-guide', 'site-index', 'contact',\n                   'hmg-ecosystem', 'hmg-products', 'blog', 'blog-post', 'class-register'\]/.test(rbac),
+/* round-13 fix: the SHELL list grew free-register in a later round — check
+   the members (any order/whitespace) instead of the exact literal. */
+ok(/SHELL = \[[\s\S]*?'blog'[\s\S]*?'blog-post'[\s\S]*?'class-register'[\s\S]*?\]/.test(rbac),
    'rbac: blog, blog-post and class-register in the shell for every role');
 ok(/if \(window\.RBAC && typeof RBAC\.level === 'function'\)/.test(rd('assets/js/app.js')),
    'app.js: moduleAllowedForRole delegates to RBAC (no conflicting whitelist)');
@@ -121,7 +123,9 @@ if (fs.existsSync(CLIENT) && fs.existsSync(path.join(CLIENT, 'index.html'))) {
 
 /* ---------- 8. Public self-booking options (item 37) ---------- */
 const pb = rd('public-book.html');
-ok(/7 → 28 classes/.test(pb) && /3 → 12 classes/.test(pb), 'public-book.html: expanded times-per-cycle');
+/* round-13 fix: the booking-cycle copy is now spelled out per option
+   ("4 Classes per month (1x a week)" … "28 Classes per month (7x a week)"). */
+ok(/28 Classes per month/.test(pb) && /4 Classes per month/.test(pb), 'public-book.html: expanded times-per-cycle');
 
 console.log('\n=== V27 VERIFY · ' + (ROOT.endsWith('tutoringconnect') ? 'generator' : 'client') + ' ===');
 console.log('  pass ' + pass + '  fail ' + fail);
