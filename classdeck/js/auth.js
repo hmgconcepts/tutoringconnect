@@ -179,6 +179,28 @@ async function loginTeacher() {
   }
   if (hash !== acc.hash) { noteFailedLogin(); $("#liStatus").textContent = "Incorrect password."; return; }
   clearFailedLogin();
+  /* V48 (round 12): CREDENTIAL ROAMING HOOK. If the teacher's Adewale
+     Classroom portal account uses this same email + password, sign in to
+     it from the deck right now (fire-and-forget) — the session this
+     creates is what lets cloud-creds.js pull the TURN key, relay
+     credentials and streaming settings onto THIS device automatically.
+     If the portal account doesn't match, everything keeps working
+     locally; the Settings → Relay card offers a one-time link instead. */
+  try {
+    if (window.CloudCreds && !CloudCreds.signedIn()) {
+      CloudCreds.signIn(emailRaw, pw).then(function (ok) {
+        if (!ok) return null;
+        /* V49 (round 13, item 1): make the roaming VISIBLE — the teacher
+           must know the TURN/streaming keys are already on this device,
+           not wonder why the settings are empty a minute later. */
+        return CloudCreds.pull().then(function (pulled) {
+          if (pulled && typeof toast === "function") {
+            toast("☁️ Credentials restored from your ADEWALE CLASSROOM account — TURN and streaming keys are ready on this device.", "ok", 9000);
+          }
+        });
+      }).catch(function () {});
+    }
+  } catch (e) {}
   sessionStorage.setItem("hmg_session", "1");
   $("#liStatus").textContent = "";
   toast(acc.owner ? "👑 Welcome back, Founder — lifetime access." : "Welcome back, " + acc.name + "!", "ok");
