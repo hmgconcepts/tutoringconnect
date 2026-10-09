@@ -48,14 +48,7 @@ for (const [tbl, col] of [['rooms','capacity'],['substitutions','cover_tutor_nam
   ['parent_meetings','meeting_url'],['trials','scheduled_at'],['waitlist','offered_on'],
   ['inquiries','owner'],['helpdesk_tickets','priority'],['events','starts_at'],
   ['reviews','published'],['announcements','pinned']]) {
-  /* round-13 fix: the V28 pairs were normalised to ('table', 'col type')
-     with a space, some columns moved to later packs (v46 lms status, base
-     eresources.url…), and some gained a third label element. What the ops
-     registers actually need is: the column exists on that table SOMEWHERE
-     in the schema. Prove that. */
-  ok(new RegExp("\\('" + tbl + "',?\\s*'" + col + "\\b").test(v28sec) ||
-     new RegExp("table (if exists )?public\\." + tbl + "\\b[\\s\\S]{0,400}?add column if not exists " + col + "\\b").test(sql) ||
-     new RegExp("create table (if not exists )?public\\." + tbl + "\\b[\\s\\S]{0,600}?\\b" + col + "\\b").test(sql),
+  ok(new RegExp("\\('" + tbl + "','" + col + " [a-z0-9_ ]+'\\)").test(v28sec),
      'sql: ' + tbl + '.' + col);
 }
 

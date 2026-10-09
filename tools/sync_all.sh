@@ -39,12 +39,14 @@ for f in sorted(os.listdir(AC)):
     p = os.path.join(AC, f)
     s = open(p, encoding='utf-8').read()
     o = s
-    # round-13 fix: the old remove-then-insert was not byte-idempotent —
-    # every sync could leave one more newline before the brand style, so
-    # the twin check kept diverging on a blank line. Remove the style
-    # TOGETHER WITH all whitespace between it and </head>, then insert the
-    # canonical single form. Running it twice now yields identical bytes.
-    s = re.sub(r'<style id="tc-brand">.*?</style>\s*(?=</head>)', '', s, flags=re.S)
+    # r14 idempotency guard: a page that already carries the exact brand
+    # block + font link + theme colour is LEFT ALONE. This is what stopped
+    # the recurring messages.html newline divergence — the old code
+    # stripped and re-added the block on every run, and any whitespace
+    # mismatch between generator and client made the mirror flip the file
+    # back and forth forever.
+    if BRAND in s and FONT in s and '<meta name="theme-color" content="#0506ae">' in s:
+        continue
     s = re.sub(r'<style id="tc-brand">.*?</style>', '', s, flags=re.S)
     s = re.sub(r'<meta name="theme-color" content="#[0-9a-fA-F]{3,6}">',
                '<meta name="theme-color" content="#0506ae">', s)
@@ -99,4 +101,20 @@ echo "generator pages : $(ls "$TC"/*.html | wc -l)"
 echo "client pages    : $(ls "$AC"/*.html | wc -l)"
 echo "zip entries     : $(unzip -l "$ZIP" | tail -1 | awk '{print $2}')"
 echo "zip size        : $(du -h "$ZIP" | cut -f1)"
+
+echo "== 6. hygiene (added round 13, restored round 14) =="
+# The suite directory is 35MB+ of copies — the workspace snapshot budget
+# (~128MB cap, 110MB guard) cannot afford it once zipped. Remove it, then
+# FAIL the sync if the persisted workspace (everything except
+# node_modules, which never persists) is over budget.
+rm -rf "$SUITE"
+BUDGET_KB=$((110 * 1024))
+PERSISTED_KB=$(du -sk /home/user 2>/dev/null | cut -f1)
+NM_KB=$(du -sk /home/user/classdeck-qa/node_modules 2>/dev/null | cut -f1 || echo 0)
+USED_KB=$((PERSISTED_KB - NM_KB))
+echo "   persisted workspace: $((USED_KB / 1024)) MB (guard: 110 MB)"
+if [ "$USED_KB" -gt "$BUDGET_KB" ]; then
+  echo "   ❌ OVER BUDGET — remove stale files before finishing."
+  exit 1
+fi
 echo "SYNC COMPLETE"

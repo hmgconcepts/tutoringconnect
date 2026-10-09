@@ -6,7 +6,8 @@ import os, shutil, sys
 
 EXCLUDE_FILES = {'assets/js/config.js', 'assets/js/generator.js', 'assets/js/wizard.js',
                  'builder.html', 'index.html', 'manifest.json',
-                 'package.json', 'package-lock.json'}
+                 'package.json', 'package-lock.json',
+                 'classdeck/js/config.js.bak'}  # r14: stray backup never mirrors
 EXCLUDE_DIRS = {'tools', 'node_modules', 'modern', '.git'}
 PLAIN_EXCLUDE_DIRS = {'node_modules', '.git'}
 
