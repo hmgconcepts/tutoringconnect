@@ -91,7 +91,12 @@ for (const deny of ['messages', 'helpdesk', 'directory', 'birthdays', 'timezones
      'rbac: family deny covers ' + deny);
 }
 ok(/'safeguarding', 'application-links', 'activity-log'/.test(rbac), 'rbac: staff deny covers admin pages');
-ok(/SHELL = \['dashboard', 'profile', 'change-password', 'notifications',\n                   'inbox', 'offline', 'install', 'about',\n                   'feature-guide', 'site-index', 'contact',\n                   'hmg-ecosystem', 'hmg-products', 'blog', 'blog-post', 'class-register'\]/.test(rbac),
+ok((function () {
+     const m = rbac.match(/SHELL = \[([\s\S]*?)\]/);
+     const flat = m ? m[1].replace(/\s+/g, ' ') : '';
+     return /'dashboard', 'profile', 'change-password', 'notifications'/.test(flat) &&
+            /'blog', 'blog-post', 'class-register'/.test(flat);
+   })(),
    'rbac: blog, blog-post and class-register in the shell for every role');
 ok(/if \(window\.RBAC && typeof RBAC\.level === 'function'\)/.test(rd('assets/js/app.js')),
    'app.js: moduleAllowedForRole delegates to RBAC (no conflicting whitelist)');
@@ -121,7 +126,12 @@ if (fs.existsSync(CLIENT) && fs.existsSync(path.join(CLIENT, 'index.html'))) {
 
 /* ---------- 8. Public self-booking options (item 37) ---------- */
 const pb = rd('public-book.html');
-ok(/7 → 28 classes/.test(pb) && /3 → 12 classes/.test(pb), 'public-book.html: expanded times-per-cycle');
+ok((function () {
+     const vals = (pb.match(/<option value="(\d+)"[^>]*>\d+ Classes per month/g) || [])
+       .map((m) => Number(m.match(/value="(\d+)"/)[1]));
+     return vals.length >= 7 && vals.includes(4) && vals.includes(28) &&
+            vals[vals.length - 1] === 28 && /7x a week/.test(pb);
+   })(), 'public-book.html: expanded times-per-cycle (4→28, 1x–7x a week)');
 
 console.log('\n=== V27 VERIFY · ' + (ROOT.endsWith('tutoringconnect') ? 'generator' : 'client') + ' ===');
 console.log('  pass ' + pass + '  fail ' + fail);

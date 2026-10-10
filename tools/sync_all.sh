@@ -45,7 +45,14 @@ for f in sorted(os.listdir(AC)):
     # stripped and re-added the block on every run, and any whitespace
     # mismatch between generator and client made the mirror flip the file
     # back and forth forever.
-    if BRAND in s and FONT in s and '<meta name="theme-color" content="#0506ae">' in s:
+    # r21: the font condition accepts ANY Plus Jakarta Sans link (index.html
+    # loads wght@300..800, site-index adds Fraunces, payment-required uses
+    # 400;600;700) and a page with no theme-color meta counts as baked. The
+    # old exact-FONT guard failed these three pages EVERY run, so the
+    # strip-and-re-add churned blank lines into them on every sync.
+    if BRAND in s and 'Plus+Jakarta+Sans' in s and (
+         '<meta name="theme-color" content="#0506ae">' in s or
+         '<meta name="theme-color"' not in s):
         continue
     s = re.sub(r'<style id="tc-brand">.*?</style>', '', s, flags=re.S)
     s = re.sub(r'<meta name="theme-color" content="#[0-9a-fA-F]{3,6}">',
@@ -109,9 +116,12 @@ echo "== 6. hygiene (added round 13, restored round 14) =="
 # node_modules, which never persists) is over budget.
 rm -rf "$SUITE"
 BUDGET_KB=$((110 * 1024))
-PERSISTED_KB=$(du -sk /home/user 2>/dev/null | cut -f1)
-NM_KB=$(du -sk /home/user/classdeck-qa/node_modules 2>/dev/null | cut -f1 || echo 0)
-USED_KB=$((PERSISTED_KB - NM_KB))
+# r21: measure what ACTUALLY persists. The workspace snapshot excludes
+# node_modules AND the package caches (.npm/.cache) — the guard used to
+# count them, so a fresh `npm install jsdom` alone could trip it (134 MB
+# reported while the true persisted size was ~91 MB).
+PERSISTED_KB=$(du -sk --exclude=node_modules --exclude=.npm --exclude=.cache /home/user 2>/dev/null | cut -f1)
+USED_KB=$PERSISTED_KB
 echo "   persisted workspace: $((USED_KB / 1024)) MB (guard: 110 MB)"
 if [ "$USED_KB" -gt "$BUDGET_KB" ]; then
   echo "   ❌ OVER BUDGET — remove stale files before finishing."

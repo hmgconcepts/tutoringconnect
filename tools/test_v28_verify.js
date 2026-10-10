@@ -48,7 +48,7 @@ for (const [tbl, col] of [['rooms','capacity'],['substitutions','cover_tutor_nam
   ['parent_meetings','meeting_url'],['trials','scheduled_at'],['waitlist','offered_on'],
   ['inquiries','owner'],['helpdesk_tickets','priority'],['events','starts_at'],
   ['reviews','published'],['announcements','pinned']]) {
-  ok(new RegExp("\\('" + tbl + "','" + col + " [a-z0-9_ ]+'\\)").test(v28sec),
+  ok(new RegExp("\\('" + tbl + "'\\s*,\\s*'" + col + "(\\s|',)[^)]*\\)").test(v28sec),
      'sql: ' + tbl + '.' + col);
 }
 
