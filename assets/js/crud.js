@@ -96,7 +96,14 @@ const CRUD = {
       { key: 'timezone', label: 'Timezone', type: 'select', options: ['Africa/Lagos','Europe/London','America/New_York','America/Chicago','America/Toronto','Asia/Dubai','Asia/Kolkata','Australia/Sydney','UTC'] },
       { key: 'billing_name', label: 'Billing name', type: 'text' },
       { key: 'status', label: 'Status', type: 'select', options: ['active','inactive'] }
-    ]},
+    ],
+    /* V53 (round 17, item 4): the admin's per-parent monitor — children,
+       their classes and tutors, invoices and payment history. */
+    rowActions: [{ id: 'monitor', label: '📊 Monitor', cls: 'btn-outline', title: 'Everything about this family — children, their classes and tutors, invoices, payment history' }],
+    onRowAction: function (action, r) {
+      if (action === 'monitor' && window.StaffMonitor) StaffMonitor.parent(r);
+      else if (action === 'monitor') toast('The staff monitor needs assets/js/staff-monitor.js (V53).', 'warning');
+    } },
     parent_links: { table: 'parent_learner', title: 'Parent–learner link', cols: [
       { key: 'parent_id', label: 'Parent', type: 'ref', refTable: 'parents', refValue: 'full_name', refStore: 'id', required: true },
       { key: 'learner_id', label: 'Learner', type: 'ref', refTable: 'learners', refValue: 'full_name', refStore: 'id', required: true },
@@ -117,7 +124,15 @@ const CRUD = {
       { key: 'specialisms', label: 'Specialisms', type: 'text' },
       { key: 'hourly_cost', label: 'Pay rate (if staff)', type: 'number' },
       { key: 'status', label: 'Status', type: 'select', options: ['active','inactive'] }
-    ]},
+    ],
+    /* V53 (round 17, item 4): the admin's per-tutor monitor — one button,
+       every fact (classes taken, bookings, students, subjects, topics,
+       CBTs, payroll). Rendered by assets/js/staff-monitor.js. */
+    rowActions: [{ id: 'monitor', label: '📊 Monitor', cls: 'btn-outline', title: 'Everything this tutor does — classes taken, bookings, students, subjects, topics covered, CBTs created, salary history' }],
+    onRowAction: function (action, r) {
+      if (action === 'monitor' && window.StaffMonitor) StaffMonitor.tutor(r);
+      else if (action === 'monitor') toast('The staff monitor needs assets/js/staff-monitor.js (V53).', 'warning');
+    } },
     subjects: { table: 'subjects', title: 'Subject', cols: [
       { key: 'name', label: 'Name', type: 'text', required: true },
       { key: 'exam_board', label: 'Exam board', type: 'text' },
@@ -242,7 +257,16 @@ const CRUD = {
       { key: 'score', label: 'Score', type: 'number' },
       { key: 'submission_url', label: 'Submission (Drive)', type: 'text' },
       { key: 'status', label: 'Status', type: 'select', options: ['set','submitted','marked','late','missing'] }
-    ]},
+    ],
+      /* V51 (round 15, item 10): score the whole class from the row —
+         auto-filled from CBT results for CBT assignments (GOSA parity). */
+      rowActions: [{ id: 'scoreclass', label: '✍️ Score class', cls: 'btn-outline',
+                     title: 'Score every learner of this class in one sheet — auto-filled from CBT results for CBT assignments' }],
+      onRowAction: function (action, r) {
+        if (action !== 'scoreclass' || !r) return;
+        if (window.ASSIGN_POINTS) ASSIGN_POINTS.scoreClass(r);
+      },
+    },
     assessments: { table: 'assessments', title: 'Assessment', cols: [
       { key: 'engagement_id', label: 'Engagement', type: 'ref', refTable: 'engagements', refValue: 'name', refStore: 'id' },
       { key: 'learner_id', label: 'Learner', type: 'ref', refTable: 'learners', refValue: 'full_name', refStore: 'id', required: true },
@@ -463,6 +487,9 @@ const CRUD = {
       { key: 'url', label: 'Drive / web link', type: 'text', required: true, help: 'The https address of the book / paper / video. For Drive files set sharing to “Anyone with the link” first.' },
       { key: 'subject', label: 'Subject', type: 'lookup', lookupTable: 'subjects', lookupValue: 'name', help: 'Pick a subject you teach. Keeps the shelf filterable by subject.' },
       { key: 'kind', label: 'Kind', type: 'select', options: ['book','paper','video','worksheet','other'], help: 'What the link contains — shown as an icon on the students’ work board.' },
+      { key: 'due_date', label: 'Due', type: 'date', help: 'Optional — students see a “due” chip on their shelf (V51).' },
+      { key: 'max_score', label: 'Max score', type: 'number', help: 'Points the quiz is worth in the 🏅 points workbench (V51).' },
+      { key: 'has_quiz', label: 'Has quiz', type: 'checkbox', help: 'Set automatically when you add comprehension questions in the ➕ card above (V51).' },
       { key: 'engagement_id', label: 'Class / group / cohort (who sees it)', type: 'ref', refTable: 'engagements', refValue: 'name', refStore: 'id', help: 'Leave blank for the studio-wide public shelf. Pick a class and ONLY its students see this item on their dashboard — students in other classes never do. Only you (and the admin) can edit it afterwards.' }
     ]},
     eresources: { table: 'eresources', title: 'E-resource', cols: [
@@ -892,40 +919,82 @@ const CRUD = {
               break;
             }
           }
-          if (ok && this.sb && !(data || []).length) {
-            /* V50 — the ref table read back EMPTY (no error). For a staff
-               user who can see the rows that reference it, an empty map
-               would turn every link into “linked · name unavailable”.
-               Ask the security-definer RPC for the id→label map before
-               giving up. On a pre-V50 database the RPC is missing and we
-               keep the honest empty map (the warning banner shows). */
+          if (!(data || []).length) {
+            /* V50/V52 — the ref table read back EMPTY. Two very different
+               causes, both handled:
+               a) a permission gap → the security-definer tc_ref_labels RPC
+                  resolves the names server-side (role-aware since V51);
+               b) THE ROUND-16 RACE — supabase-js restores the session
+                  token ASYNCHRONOUSLY, and a query that slips out before
+                  the restore runs as ANON: row-level security then returns
+                  ZERO ROWS, not an error. That empty result used to be
+                  CACHED for the life of the page — which is exactly why
+                  the names banner stayed while pressing Edit (a fresh,
+                  later read) fixed it. Now an empty result is never
+                  cached: the RPC runs, and whatever it yields is retried
+                  once more after the session settles. */
             try {
               const { data: rpcMap, error: rpcErr } = await this.sb.rpc('tc_ref_labels', { p_table: c.refTable });
               if (!rpcErr && rpcMap && typeof rpcMap === 'object' && !Array.isArray(rpcMap)) {
                 Object.keys(rpcMap).forEach(k => { m[k] = rpcMap[k]; });
               }
             } catch (e) { /* pre-V50 database — fallback unavailable */ }
+            if (!Object.keys(m).length) {
+              m.__empty = true;
+              this._refEmpty = this._refEmpty || {};
+              this._refEmpty[key] = m;
+              this._scheduleRefRetry();
+            }
           }
           if (ok) (data || []).forEach(d => { m[String(d[c.refStore || c.refValue])] = d[c.refValue] || d.email || d.name || d.title || 'Unnamed'; });
         } else {
           ((window.DEMO && window.DEMO[c.refTable]) || []).forEach(d => { m[String(d[c.refStore || c.refValue])] = d[c.refValue] || d.email || d.name || d.title || 'Unnamed'; });
         }
-        if (ok) this._refCache[key] = m;
-        else {
+        if (ok && !m.__empty) this._refCache[key] = m;
+        else if (!ok) {
           m.__failed = true;
           this._refFailed = this._refFailed || {};
           this._refFailed[key] = m;
         }
       }
-      maps[c.key] = this._refCache[key] || (this._refFailed && this._refFailed[key]);
+      maps[c.key] = this._refCache[key] || (this._refFailed && this._refFailed[key]) || (this._refEmpty && this._refEmpty[key]);
     }
     return maps;
+  },
+
+  /* V52 — one delayed retry for ref maps that came back empty (the anon
+     race above). Purges the caches and repaints every mounted list once,
+     a few seconds after the first empty read — by then the session token
+     has settled and the same read returns the names. */
+  _scheduleRefRetry() {
+    if (this._refRetryAt) return;
+    this._refRetryAt = setTimeout(() => {
+      this._refRetryAt = 0;
+      this._refCache = {}; this._refFailed = {}; this._refErrors = {}; this._refEmpty = {};
+      const mounted = this._mounted || {};
+      Object.keys(mounted).forEach(modId => {
+        try { this.renderList(modId, mounted[modId]); } catch (e) {}
+      });
+    }, 2500);
+  },
+
+  /* V52 — a session arriving mid-page (sign-in, token refresh) must purge
+     the ref caches: maps loaded as anon are empty and would otherwise
+     stick for the whole visit. Registered once, on first use. */
+  _watchAuth() {
+    if (this._authWatched || !this.sb || !this.sb.auth || !this.sb.auth.onAuthStateChange) return;
+    this._authWatched = true;
+    try {
+      this.sb.auth.onAuthStateChange(() => {
+        this._refCache = {}; this._refFailed = {}; this._refErrors = {}; this._refEmpty = {};
+      });
+    } catch (e) {}
   },
 
   /* Render one cell. Handles refs, booleans, dates, money, long text,
      and links (a URL becomes a real anchor — this studio is links-only,
      so nearly every media column is a Drive / YouTube / https URL). */
-  _cell(row, col, maps) {
+  _cell(row, col, maps, viewerCanWrite) {
     const raw = row[col.key];
     if (raw === null || raw === undefined || raw === '') return '<span class="muted">—</span>';
     if (col.type === 'ref' && maps[col.key]) {
@@ -940,11 +1009,20 @@ const CRUD = {
       if (label) return TC.esc(label);
       if (map.hasOwnProperty(String(raw)))
         return '<span class="muted" title="' + TC.esc(String(raw)) + '">unnamed link</span>';
-      if (map.__failed)
+      if (map.__failed && viewerCanWrite !== false)
         return '<span class="badge badge-warning" title="Names could not be loaded from ' + TC.esc(col.refTable || 'the linked table') + ' — usually a permissions issue on that table. The link itself is intact.">⚠ names unavailable</span>';
       if (String(raw).includes('@')) return TC.esc(String(raw));
       if (col.key === 'user_id' && String(raw).length > 20)
         return '<span class="badge badge-success" title="Account ' + TC.esc(String(raw)) + '">Linked ✓</span>';
+      /* V52 — a READ-ONLY viewer (learner / parent) never needs the raw id:
+         they can only ever see rows scoped to their own classes, so the
+         honest label for an unresolvable engagement link is “your class”,
+         never a scary database error. This makes the student portal
+         correct even before the database migrations land. */
+      if (viewerCanWrite === false && col.refTable === 'engagements')
+        return '<span class="badge" style="background:#eef2ff;color:#3730a3" title="This item is scoped to one of your classes">🎓 your class</span>';
+      if (viewerCanWrite === false)
+        return '<span class="badge badge-muted">linked ✓</span>';
       return '<span class="badge badge-muted" title="Linked to ' + TC.esc(String(raw)) + ' — the target record is outside your current access or was deleted. The link itself is intact.">linked · name unavailable</span>';
     }
     if (col.type === 'checkbox' || typeof raw === 'boolean') {
@@ -962,9 +1040,19 @@ const CRUD = {
     if (col.type === 'date' || col.type === 'datetime-local' || /_at$|^date|_date$/.test(col.key)) {
       const d = new Date(raw);
       if (!isNaN(d)) {
-        return col.type === 'date' || /^date|_date$/.test(col.key)
+        const base = col.type === 'date' || /^date|_date$/.test(col.key)
           ? d.toLocaleDateString()
           : d.toLocaleString();
+        /* V52 (round 16, item 1) — the timezone blueprint: on pages that
+           load tz.js, a schedule-ish datetime renders in the studio's home
+           zone AND the viewer's own zone concurrently, so nobody misses a
+           class to a timezone mistake. tz.js decides which columns
+           qualify (starts_at, due dates, windows…). */
+        if (col.type !== 'date' && !/^date|_date$/.test(col.key) && window.TZ && TZ.dualHtml) {
+          const dual = TZ.dualHtml(raw, col.key, row);
+          if (dual) return '<span>' + base + '</span>' + dual;
+        }
+        return base;
       }
     }
     const s = String(raw);
@@ -1047,6 +1135,20 @@ const CRUD = {
     if (!schema || !mount) return;
     const can = this.canWrite(moduleId);
     const self = this;
+    /* V52 — close the anon race at the source: wait (a few ms) for the
+       client to restore the session BEFORE the first query, so reads run
+       authenticated instead of returning an RLS-empty page that would
+       otherwise be cached as "no names". */
+    if (this.sb && this.sb.auth && this.sb.auth.getSession) {
+      try { await this.sb.auth.getSession(); } catch (e) {}
+    }
+    /* V52 — prime the timezone engine BEFORE any cell renders, so the
+       dual-time line (studio zone + viewer zone) is on the FIRST paint,
+       not only after a later repaint. */
+    if (window.TZ && TZ.init) { try { await TZ.init(); } catch (e) {} }
+    this._watchAuth();
+    this._mounted = this._mounted || {};
+    this._mounted[moduleId] = mountId || 'crud-root';
 
     // --- persisted per-module view state -------------------------------
     const view = Object.assign(
@@ -1120,14 +1222,14 @@ const CRUD = {
                      rows.some(r => r[c.key]))
         .map(c => c.refTable);
       const uniqEmpty = [...new Set(emptyRefs)];
-      const refEmptyWarn = uniqEmpty.length
+      const refEmptyWarn = (uniqEmpty.length && can)
         ? '<div style="display:flex;gap:10px;align-items:flex-start;background:rgba(245,158,11,0.10);border:1px solid rgba(245,158,11,0.45);border-radius:10px;padding:10px 14px;margin:0 0 12px;font-size:13px">'
           + '<span style="font-size:16px;line-height:1.2">🔗</span><div>'
           + '<strong>Link names are not loading</strong> from ' + uniqEmpty.map(t => '<code>' + TC.esc(t) + '</code>').join(', ')
           + ' — the links themselves are intact and save correctly. '
           + '<button class="btn btn-sm btn-outline" type="button" id="crud-refretry" style="margin-left:6px">↻ Retry names</button></div></div>'
         : '';
-      const refWarn = uniqFailed.length
+      const refWarn = (uniqFailed.length && can)
         ? '<div style="display:flex;gap:10px;align-items:flex-start;background:rgba(245,158,11,0.10);border:1px solid rgba(245,158,11,0.45);border-radius:10px;padding:10px 14px;margin:0 0 12px;font-size:13px">'
           + '<span style="font-size:16px;line-height:1.2">⚠️</span><div>'
           + '<strong>Link names could not be loaded</strong> from ' + uniqFailed.map(t => '<code>' + TC.esc(t) + '</code>').join(', ')
@@ -1253,7 +1355,7 @@ const CRUD = {
       body.innerHTML = list.map(r =>
         '<tr data-row="' + TC.esc(String(r.id)) + '"' + (selected.has(String(r.id)) ? ' class="is-selected"' : '') + '>' +
           '<td><input type="checkbox" data-pick="' + TC.esc(String(r.id)) + '" ' + (selected.has(String(r.id)) ? 'checked' : '') + '></td>' +
-          cols.map(c => '<td>' + self._cell(r, c, maps) + '</td>').join('') +
+          cols.map(c => '<td>' + self._cell(r, c, maps, can) + '</td>').join('') +
           '<td class="crud-actions">' +
             /* V16: a page may attach its own buttons to every row by
                declaring schema.rowActions = [{ id, label, title, cls }].
@@ -1388,7 +1490,7 @@ const CRUD = {
       if (colsBtn) colsBtn.onclick = () => self.openColumns(moduleId, schema, view, () => { persist(); shell(); wire(); paint(); });
 
       const printBtn = $('crud-print');
-      if (printBtn) printBtn.onclick = () => self.printList(schema, rows, visible(), maps);
+      if (printBtn) printBtn.onclick = () => self.printList(schema, rows, visible(), maps, can);
 
       const csv = $('crud-csv');
       if (csv) csv.onclick = () => self.exportCsv(schema, rows);
@@ -1474,7 +1576,7 @@ const CRUD = {
       '<button type="button" onclick="closeModal(\'crud-record\')">×</button></div>' +
       '<div class="modal-body">' +
         '<table class="crud-detail"><tbody>' +
-          schema.cols.map(c => '<tr><th>' + TC.esc(c.label) + '</th><td>' + this._cell(row, c, maps || {}) + '</td></tr>').join('') +
+          schema.cols.map(c => '<tr><th>' + TC.esc(c.label) + '</th><td>' + this._cell(row, c, maps || {}, can) + '</td></tr>').join('') +
           extra.map(k => '<tr><th class="muted">' + TC.esc(k) + '</th><td class="muted">' +
             TC.esc(row[k] == null ? '—' : (typeof row[k] === 'object' ? JSON.stringify(row[k]) : String(row[k]))) + '</td></tr>').join('') +
           '<tr><th class="muted">Record id</th><td class="muted" style="font-family:monospace;font-size:.8rem">' + TC.esc(String(row.id)) + '</td></tr>' +
@@ -1495,7 +1597,7 @@ const CRUD = {
 
   /* Printable view of exactly what is on screen — no browser chrome, no
      nav, no buttons. Prints or "saves as PDF" from the print dialog. */
-  printList(schema, rows, cols, maps) {
+  printList(schema, rows, cols, maps, can) {
     const w = window.open('', '_blank');
     if (!w) { toast('Allow pop-ups to print.', 'warning'); return; }
     const brand = (window.CONFIG && (CONFIG.practiceName || CONFIG.siteName)) || document.title;
@@ -1508,7 +1610,10 @@ const CRUD = {
       '<h1>' + TC.esc(brand) + ' — ' + TC.esc(schema.title) + '</h1>' +
       '<small>' + rows.length + ' record(s) · printed ' + new Date().toLocaleString() + '</small>' +
       '<table><thead><tr>' + cols.map(c => '<th>' + TC.esc(c.label) + '</th>').join('') + '</tr></thead><tbody>' +
-      rows.map(r => '<tr>' + cols.map(c => '<td>' + this._cell(r, c, maps || {}) + '</td>').join('') + '</tr>').join('') +
+      /* V53: viewer-awareness now reaches the PRINT view too — before,
+         the 3-arg call left viewerCanWrite undefined, so a STAFF print
+         showed the family-safe "your class" cells instead of real names. */
+      rows.map(r => '<tr>' + cols.map(c => '<td>' + this._cell(r, c, maps || {}, can !== false) + '</td>').join('') + '</tr>').join('') +
       '</tbody></table></body></html>');
     w.document.close();
     setTimeout(() => w.print(), 350);
@@ -1607,6 +1712,20 @@ const CRUD = {
       else if (c.type === 'ref' && this.sb) {
         const { data, error } = await this.sb.from(c.refTable).select('*').limit(200);
         const refKey = c.refStore || c.refValue;
+        /* V52 — a successful dropdown load IS the link-name map: publish
+           it into the shared ref cache so the table that sent the user
+           here resolves its names too (the round-16 report: names were
+           broken until Edit was opened — Edit's fresh read always
+           worked; now the one read benefits both surfaces). */
+        if (!error && (data || []).length) {
+          this._refCache = this._refCache || {};
+          this._refEmpty = this._refEmpty || {};
+          const ck = c.refTable + '|' + (c.refStore || c.refValue) + '|' + c.refValue;
+          const cm = {};
+          (data || []).forEach(d => { cm[String(d[c.refStore || c.refValue])] = d[c.refValue] || d.email || d.name || d.title || 'Unnamed'; });
+          this._refCache[ck] = cm;
+          delete this._refEmpty[ck];
+        }
         const opts = (data || []).map(d => `<option value="${d[refKey]}" ${String(row[c.key])===String(d[refKey])?'selected':''}>${TC.esc(d[c.refValue])}</option>`).join('');
         /* V13.1 — never lose the current value silently: if the saved id is
            not among the options (RLS scope, deleted target, list >200), keep
