@@ -1,6 +1,6 @@
 {
-  "version": "15.0.0",
-  "build": 23,
+  "version": "15.0.3",
+  "build": 26,
   "channel": "stable",
   "released": "2026-10-10",
   "features": [
@@ -79,6 +79,15 @@
     "v15.0-persisted-sync-stamp",
     "v15.0-diagnose-button",
     "v15.0-network-first-pages",
-    "v15.0-drive-backup-real-progress"
+    "v15.0-drive-backup-real-progress",
+    "v15.0.1-alias-row-truth",
+    "v15.0.2-diagnose-write-probe",
+    "v15.0.2-self-heal-visibility",
+    "v15.0.2-empty-account-honesty",
+    "v15.0.3-cloud-sync-on-every-page",
+    "v15.0.3-diagnose-device-inventory",
+    "v15.0.3-update-banner",
+    "v15.0.3-relay-only-truth",
+    "v15.0.3-sync-stale-read-guard"
   ]
 }
