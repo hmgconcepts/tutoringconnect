@@ -620,3 +620,250 @@ click-paths, troubleshooting table, persisted first-run checklist.
 signed-out state, live progress, a clickable recount, an automatic retry,
 and — if signed in but nothing is readable — a diagnosis that names the
 cause and the exact migration file to run.
+
+## V51 — family link names, library quiz, homework points, cloud last-backup (round 15)
+
+Run `database/v51-family-ref-labels-library-quiz.sql` once on existing
+projects (idempotent; complete-schema.sql already carries it for fresh
+installs — and tools/audit_selfcontained.py now PROVES the complete
+schema carries every object of every migration file, so one run of
+complete-schema.sql is all a fresh install needs).
+
+**Student-portal link names (items 2–5).** `tc_ref_labels()` is now
+role-aware: learners get the id→name map of the engagements they are
+members of, parents get their children's — the same visibility predicate
+that governs the shelf rows themselves, so a class name resolves exactly
+when the row that references it is visible. The four shelf pages are
+also role-aware now: learners and parents get a studying view (cards,
+search, filters, working links, due chips) instead of the staff table.
+
+**Digital library with comprehension quizzes (GOSA parity).** Readings
+carry optional auto-marked questions (mcq, multiple response,
+true/false, short answer, keyword; answers typed as letters or positions
+mark correctly), an attempt limit, a due date, a max score and an
+optional linked CBT code. Attempts are recorded per learner
+(library_quiz_attempts: own-insert only, RLS-refused otherwise). The 🏅
+points workbench aggregates best attempts per learner per reading
+(linked-CBT best attempts merged) and pushes the totals into the
+scoresheet as continuous-assessment evidence (source `library_points`).
+
+**Homework points workbench (GOSA parity).** ✍️ Score class on any
+homework row opens the class scoring sheet — auto-filled from CBT
+results for CBT assignments (scaled to the assignment's max), manual for
+physical work — and writes per-learner rows. The term score sheet shows
+every assignment as a column with cumulative totals per learner; 🚀
+pushes the totals into the scoresheet (source `homework_points`); CSV
+export included. Students get a plain-language explainer of how homework
+earns points, with their live total.
+
+**"Last backup" is a studio record now.** practice_settings.last_backup_at
+is stamped by every backup path (local download, Google Drive) and read
+by every device — the card shows the newest record with its source and
+age instead of a per-device localStorage guess.
+
+**ClassDeck 14.6.0 — the TURN key actually reaches the cloud.** Settings
+→ Save now persists the TURN Token ID / API token boxes AND pushes them
+to the linked account immediately (round 15 found the save handler had
+never read them — a hand-typed key never left the device, which is why
+every other device said "nothing saved there yet"). The cloud-sync card
+shows what the account actually holds, "last sync" only counts when data
+moved, and the Tablet Live modal documents every field with examples
+and ✅/❌ guidance.
+
+## V52 — timezone truth, empty-ref race, TURN-sync truth, last-backup truth (round 16)
+
+**One database step:** run `database/complete-schema.sql` (all-inclusive —
+887 objects, nothing else needed). On an existing V51 project you may run
+`database/v52-timezone-truth.sql` alone instead: it installs
+`tc_my_tz()` (the viewer's home+own zone in one security-definer call),
+`tc_last_backup()` (the studio-wide backup truth for any authenticated
+member) and the `practice_settings.backup_path` column, then reloads
+PostgREST.
+
+**Every schedule time now shows BOTH zones.** The new `assets/js/tz.js`
+engine + `tc_my_tz()` render schedule datetimes — sessions, bookings,
+dashboard Next-class, homework CBT opens/closes, the LMS/library/
+resources/e-resources tables — as 🏠 studio time · 👤 viewer time with
+the ±Nh delta, but ONLY when the two zones actually differ (a
+Lagos–Lagos pair sees the familiar single time). Record each
+international student's, tutor's and parent's zone once on the
+**Timezone desk** (timezones.html) — it also hosts the meeting planner
+(one moment shown in every studio zone, with 🟢/🔴 working-hours flags,
+blackout notes and a copy-ready dual-time line) and live 1-second world
+clocks. Zones resolve: desk entry → role-table column → browser zone;
+pre-V52 databases degrade gracefully.
+
+**The "🔗 Link names are not loading" banner family is closed at the
+root.** The cause was never RLS: crud.js cached the EMPTY engagements
+map when the first read raced the session restore (RLS-as-anon returns
+0 rows, not an error). Reads are now session-gated, empties consult the
+tc_ref_labels RPC, empty maps are never cached, a 2.5s self-healing
+repaint recovers, and any auth-state change purges the caches. The five
+role-split pages (LMS, library, resources, e-resources, homework) now
+decide with `App.detectRole()` — up to 10s, then the tc_current_role
+RPC, then the cached profile — so a slow session restore can no longer
+drop a learner onto the staff table. Read-only viewers see "🎓 your
+class" / "linked ✓" cells and no ref banners at all; the student shelf
+gained a class filter.
+
+**ClassDeck 14.7.0 — saved on A, actually restored on B.** The round-16
+autopsy found push() uploaded user_id NULL whenever it was the session's
+first cloud call (the uid was resolved lazily, after the row was built)
+— RLS refused it and the failure was silent, so device A believed the
+key was saved while the account stayed empty. push() now resolves the
+token+uid first (JWT-sub fallback included), Generate/Save AWAIT their
+pushes and toast failures with the remedy, pull() recognises credential
+rows by name OR data shape (any legacy label still restores), and
+**Sync now** is a real two-way sync: it pushes channels the cloud lacks
+or holds differently, then pulls — "last sync" and "Account holds"
+update the moment a push lands.
+
+**"Last backup" can no longer say "never" on the wrong device.** The
+card is session-gated, reads the studio truth through tc_last_backup()
+(any authenticated member), re-renders on every auth change and after
+every backup path, and merges local + studio + Drive timestamps (newest
+wins, tooltip names the source). Backup paths also record WHERE the
+newest archive lives (`backup_path`: device filename or Drive file
+name).
+
+**Verify after deploying:** `bash tools/verify_schema_pg.sh` (11
+scenarios), `python3 tools/audit_selfcontained.py`, then the QA battery
+(25 suites, 1110 checks per repo). Versions: portal `?v=52` / sw
+`tc-shell-v21-20261010`; deck `?v=55` / `hmg-classdeck-v14.7.0-turnsync-truth`
+/ version.json 14.7.0 build 21.
+
+## V53 — credential truth, backup stamp, tutor isolation, staff monitors (round 17)
+
+**Run it:** `psql "$DATABASE_URL" -f database/v53-credential-truth-staff-monitor.sql`
+(all statements are idempotent — `create or replace`, `drop policy if
+exists` + `create policy`, `add column if not exists`). An
+**upgrade-order guard** at the top re-creates `tc_my_tutor_id`,
+`tc_is_manager`, `tc_teaches_engagement` and guarantees the
+`tutor_id` columns on `sessions`, `library_items` and `eresources`, so
+the pack also applies cleanly to a pre-V53 standalone database.
+
+**Why it exists — three silent lies, closed at the server:**
+
+1. **Credential writes now go through security-definer RPCs.** The deck
+   used a REST upsert to `user_settings`; when that failed (RLS, missing
+   table, NULL user) the caller saw a generic error and the credential
+   silently never reached the account — which is exactly why device B
+   said "nothing saved yet" after device A "saved". `tc_set_user_setting
+   (p_key, p_value)` upserts `on conflict (user_id, key)` scoped to
+   `auth.uid()`, and `tc_get_user_settings()` returns **only the
+   caller's rows** — a learner can never read a tutor's TURN key, and
+   vice versa. Both are granted to `authenticated` only, revoked from
+   `anon`/`public`. The client (`cloud-creds.js`) writes RPC-first,
+   reads RPC-first with a table-GET fallback for pre-V53 databases, and
+   surfaces the **real error body** (`message` + `hint`) on failure —
+   "unknown" errors are gone. Cloud/local comparison now canonicalises
+   JSON (deep-sorted keys) before diffing, so jsonb key ORDER can no
+   longer make "synced - credentials current" a lie.
+2. **The backup stamp is a manager RPC.** `tc_stamp_backup(p_path)`
+   (security definer, `tc_is_manager`-guarded, upserts
+   `practice_settings` id 1 with an insert fallback) records
+   `last_backup_at = now()` and `backup_path`. Both the sealed-download
+   path and the Drive path call it RPC-first (plain UPDATE fallback),
+   so "Last Backup: never" after a successful backup cannot happen; if
+   the stamp itself fails, the admin sees the failure text, not a
+   silent nothing.
+3. **Tutor content isolation + the two 360° monitors.** Read policies on
+   `library_items`, `eresources`, `resources` and `lms_lessons` scope a
+   tutor to: rows they authored, rows on engagements they teach, and
+   the studio-shared shelf (`engagement_id is null and tutor_id is
+   null`). Family read access via `tc_family_reads_engagement` is
+   preserved. `tc_tutor_monitor(p_tutor_id)` (manager-only) returns the
+   complete audit as jsonb: profile, subjects taught, students taught,
+   sessions taken, recent + upcoming sessions, bookings (completed /
+   ongoing / earnings), topics covered, CBTs created, assignments set,
+   library items authored, and **salary payment history** from payroll.
+   `tc_parent_monitor(p_parent_id)` (manager-only) returns children
+   with their classes and tutors, invoices, payment history and
+   upcoming sessions. Both refuse non-managers at the server, and the
+   admin UI (`assets/js/staff-monitor.js`, the 📊 Monitor row action on
+   Tutors and Parents) renders them with honest empty states and
+   visible error cards.
+
+**Round-16/17 self-audit fixes shipped with this pack:** `TZ.workStatus`
+compared two different clocks (08:00 counted as inside 09:00–17:00 —
+fixed and now unit-proven for normal and past-midnight windows);
+`crud.js` `openRecord`/`printList` dropped the fourth `viewerCanWrite`
+argument so staff saw family-safe labels in the drawer and printouts;
+the "Full backup & restore" buttons in **admin-data** referenced
+`DataTools`, which was never defined — both buttons threw a silent
+`ReferenceError` (defined now, wired to the real download + restore
+readers). A new auditor, `tools/audit_handlers.py`, sweeps EVERY page
+of both trees for dangling inline `onclick`/`onchange` references — the
+DataTools class of bug — and runs green on the portal and the deck.
+
+**Verify after deploying:** `bash tools/verify_schema_pg.sh` (**12**
+scenarios — scenario 12 exercises the V53 RPC round-trip,
+cross-account isolation, the backup stamp, tutor shelf isolation and
+both monitors), `python3 tools/audit_selfcontained.py`, `python3
+tools/audit_handlers.py`, then the QA battery (26 suites, 1181 checks
+per repo). Versions: portal `?v=53` / sw `tc-shell-v22-20261010`; deck
+`?v=56` / `hmg-classdeck-v14.8.0-turnsync-rpc` / version.json 14.8.0
+build 22.
+
+## V54 — verified credential sync, network-first pages, Drive backup progress (round 18)
+
+**No database change in this round** — V53's RPCs remain the server
+truth. This round is the client-side hardening that makes the sync
+*provable*, plus the delivery fix that explains why fixed bugs seemed
+to persist.
+
+**⚠️ THE REDEPLOY NOTE — read this first.** The deck's service worker
+used to serve the **cached page** on every visit and refresh only in
+the background. That means the FIRST visit after any redeploy still ran
+the PREVIOUS build — a fix that shipped could look unfixed until the
+second visit. If the "unknown" sync error or "nothing saved yet"
+reappeared after you deployed round 17, this is almost certainly what
+happened. Round 18 makes pages **network-first** (the cache is only
+the offline fallback), so from this build on every redeploy lands on
+the very next visit. After deploying this build, refresh the deck page
+**once** (or hard-refresh) to cross over, then check the sync card's
+footer: it must say `cloud-creds v54-r18-verified-sync`.
+
+**The verified-sync engine (`classdeck/js/cloud-creds.js`):**
+- **A write only counts when the account verifiably holds it.** Every
+  push (RPC or pre-V53 REST fallback) is followed by an immediate
+  read-back of the account and a canonical comparison — "saved" now
+  means *saved and verified*, structurally closing the "looked saved on
+  device A while device B saw nothing" class whatever the server did.
+- **Pushes are serialized per channel** (Save fires the relay push and
+  the key push back-to-back) and the **token refresh is single-flight**
+  — two parallel refreshes with the same refresh token are exactly what
+  Supabase's rotation-reuse detection revokes the whole session for.
+- **`state.reason` can never be empty on failure** — every path goes
+  through `fail(stage, message)` carrying the HTTP status and the
+  server's own error body; the round-16 "unknown" toast is dead.
+- **The sync clock is persisted** (`cd-creds-sync-stamp`): "last
+  verified sync" survives page reloads instead of resetting to "not
+  yet", and the account-holds line always follows the last successful
+  read (a credential cleared on another device stops showing ✓).
+- **"Sync now" diffs against a FRESH read** (pull first, then push what
+  really differs) — "credentials current" is a statement about the
+  account, not a stale in-memory copy.
+- **🔍 Diagnose button** on the sync card: walks the exact chain a real
+  sync uses (session → endpoint → token → database read → verified
+  write), stops at the first broken link and prints its exact remedy.
+  With real local credentials the final step is a genuine verified
+  re-push — the healing action for a half-migrated database.
+
+**Google Drive backup — real progress before completion (user item
+3):** the backup now reports a staged panel on admin-data (Authorise →
+Collect *table i of n* → Upload with **byte-level progress** → Record →
+done) — the upload switched from `fetch` to XHR because fetch cannot
+report upload progress. The automatic background sync shows the same
+truth as a floating pill, and restore/recovery report per-table import
+progress too. The completion line carries rows, size and duration.
+
+**Verify after deploying:** `bash tools/verify_schema_pg.sh` (12
+scenarios — unchanged this round), `python3
+tools/audit_selfcontained.py`, `python3 tools/audit_handlers.py`, then
+the QA battery (27 suites, 1268 checks per repo — the round-18 suite
+includes a behavioral test of the sync engine against a fake
+PostgREST). Versions: portal `?v=54` on the changed admin-data assets /
+sw `tc-shell-v23-20261010`; deck `?v=57` /
+`hmg-classdeck-v15.0.0-r18-verified-sync-netfirst` / version.json
+15.0.0 build 23.
