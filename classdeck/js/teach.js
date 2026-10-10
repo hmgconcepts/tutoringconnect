@@ -2563,8 +2563,45 @@ on("#btnSettings", "click", () => {
   updateRelayPreview();
   $("#setNewRoom").checked = false;
   renderCloudSyncCard();          /* V48: roaming status + link card */
+  settingsCloudPrefill();         /* V50 (r14 item 1): the TURN key the teacher
+                                     saved on the tablet must PRE-FILL here on
+                                     any device — pull from the cloud account
+                                     when this device has nothing saved. */
   openModal("#mSettings");
 });
+
+/* ============================================================
+   V50 (round 14, item 1) — TURN key roaming pre-fill.
+   The teacher sets the key up ONCE (usually on the tablet).
+   On every OTHER device the two boxes below opened empty and the
+   teacher assumed they had to buy/paste it again. Now:
+     · opening Settings on a device with NO saved key pulls the key
+       from the linked cloud account automatically, and
+     · a ☁️ Restore button sits right next to the boxes for the
+       manual case (or to refresh after renewing the token).
+   ============================================================ */
+function prefillTurnBoxes() {
+  const cfk = $("#setCfKey"), cft = $("#setCfToken");
+  if (cfk) cfk.value = Store.get("cf_key", "") || "";
+  if (cft) cft.value = Store.get("cf_token", "") || "";
+  try { updateRelayPreview(); } catch (e) {}
+}
+async function settingsCloudPrefill() {
+  if (!window.CloudCreds || !CloudCreds.signedIn()) return;
+  /* Only auto-pull when THIS device has nothing saved — never overwrite
+     values the teacher just typed into the boxes but has not saved. */
+  if (Store.get("cf_key", "") || Store.get("cf_token", "")) return;
+  const ok = await CloudCreds.pull();
+  if (ok && (Store.get("cf_key", "") || Store.get("cf_token", ""))) {
+    prefillTurnBoxes();
+    /* pull() also re-applies the saved relay credentials — refresh that
+       box too, it was filled from THIS device's (empty) storage above. */
+    const rl = $("#setRelay");
+    if (rl) rl.value = Store.get("relay_servers", "") || "";
+    try { updateRelayPreview(); } catch (e) {}
+    toast("☁️ TURN key restored from your account — nothing to re-paste.", "ok", 8000);
+  }
+}
 
 /* ============================================================
    v12 RELAY WORKBENCH — live preview, Cloudflare key generator,
@@ -2638,7 +2675,17 @@ on("#btnCfGen", "click", async () => {
     Store.set("relay_expiry", Date.now() + ttl * 1000);
     Store.set("cf_key", keyId);
     Store.set("cf_token", token);
-    if (window.CloudCreds && CloudCreds.signedIn()) CloudCreds.push("cd-turn");   /* V47: roam */
+    /* V52 (item 8): this push is AWAITED and its failure is never silent —
+       the old fire-and-forget push could upload user_id NULL (uid not yet
+       resolved), get refused by RLS, and the teacher still saw "saved".
+       V53: the write goes through the tc_set_user_setting RPC, and the
+       sync card re-renders so "last sync" + "Account holds" move at once. */
+    if (window.CloudCreds && CloudCreds.signedIn()) {
+      const okPush = await CloudCreds.push("cd-turn");
+      try { renderCloudSyncCard(); } catch (e) {}
+      if (!okPush) toast("⚠️ Credentials generated HERE, but the cloud copy failed: " + (CloudCreds.status().reason || "unknown") + ". Press ☁️ Sync now after fixing it — otherwise other devices stay empty.", "err", 12000);
+      else toast("☁️ TURN credentials also saved to your account — every device you sign in on restores them.", "ok", 8000);
+    }   /* V47: roam */
     updateRelayPreview();
     const hrs = Math.round(ttl / 3600);
     toast("✅ Cloudflare TURN credentials generated (" + hrs + "h) — press Save. From now on the studio RENEWS them automatically before they expire, so you only ever do this once.", "ok", 12000);
@@ -2824,6 +2871,44 @@ on("#setSave", "click", () => {
       toast("Relay cleared — the built-in free servers are used again.", "ok");
     }
     updateRelayPreview();
+  }
+  /* V51 (round 15, item 7) — THE TURN-KEY ROAMING HOLE. Until now these
+     two boxes were persisted ONLY when the teacher pressed ⚡ Generate:
+     a key typed by hand and saved here NEVER reached the cloud, so every
+     other device legitimately reported "nothing saved there yet". Save
+     now persists whatever is in the boxes — and pushes it to the linked
+     account immediately (a deliberate clear pushes the tombstone too,
+     so removed keys are not resurrected on the next device). */
+  {
+    const cfk2 = $("#setCfKey"), cft2 = $("#setCfToken");
+    if (cfk2 || cft2) {
+      const k2 = cfk2 ? cfk2.value.trim() : "";
+      const t2 = cft2 ? cft2.value.trim() : "";
+      const hadKey = !!(Store.get("cf_key", "") || Store.get("cf_token", ""));
+      Store.set("cf_key", k2);
+      Store.set("cf_token", t2);
+      if (window.CloudCreds && CloudCreds.signedIn()) {
+        if (k2 || t2) {
+          CloudCreds.push("cd-turn").then((ok) => {
+            if (ok) {
+              toast("☁️ TURN key saved to your account — every device you sign in on now restores it automatically.", "ok", 8000);
+              try { renderCloudSyncCard(); } catch (e) {}
+            } else {
+              toast("⚠️ TURN key saved on THIS device only — the cloud copy failed: " + (CloudCreds.status().reason || "unknown") + ". Press ☁️ Sync now to retry.", "err", 12000);
+              try { renderCloudSyncCard(); } catch (e) {}
+            }
+          });
+        } else if (hadKey) {
+          CloudCreds.push("cd-turn", true);
+        }
+      } else if (k2 || t2) {
+        /* V53 (round 17, item 1): the honesty gap. Before this, saving a
+           key while NOT linked to the portal said nothing — the teacher
+           believed "saved" meant "saved to my account", and every other
+           device then honestly said "nothing saved yet". Say it plainly. */
+        toast("💾 Saved on THIS device only — no cloud account is linked here. Open ☁️ Cloud sync below, link your portal login once, and every device you sign in on restores this key automatically.", "err", 12000);
+      }
+    }
   }
   /* v12: large-class settings */
   const msEl = $("#setMaxStudents");
@@ -3877,21 +3962,78 @@ function renderCloudSyncCard() {
   if (!card || !window.CloudCreds) return;
   if (CloudCreds.signedIn()) {
     const st = CloudCreds.status();
+    /* V54 (round 18): "last verified sync" — the clock advances only on
+       a WRITE THAT WAS READ BACK AND CONFIRMED, or a successful read of
+       an account that verifiably holds credentials, and it is persisted
+       so it survives page reloads (the r17 "not yet after reload" gap). */
     const when = st.lastSync ? new Date(st.lastSync).toLocaleTimeString() : "not yet";
     card.innerHTML =
       '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">' +
       '<span>\u2601\ufe0f Synced with <b>' + esc(CloudCreds.sessionEmail() || "your ADEWALE CLASSROOM account") + '</b></span>' +
-      '<span class="sub">\u00b7 last sync ' + esc(when) + '</span>' +
+      '<span class="sub">\u00b7 last verified sync ' + esc(when) + '</span>' +
       '<button class="btn small" id="cloudSyncNow">🔄 Sync now</button>' +
+      '<button class="btn small ghost" id="cloudDiag" title="Test every step of the cloud sync — session, portal, token, database read, verified write — and name the first broken link with its exact fix">🔍 Diagnose</button>' +
       '<button class="btn small ghost" id="cloudUnlink">Unlink</button>' +
       "</div>" +
-      '<div class="sub" style="margin-top:6px">Your TURN key, relay credentials and streaming keys are pulled to every device you sign in from — and pushed back whenever they change.</div>' +
-      (st.reason ? '<div class="warn" style="margin-top:6px">⚠️ ' + esc(st.reason) + "</div>" : "");
+      '<div class="sub" style="margin-top:6px">Your TURN key, relay credentials and streaming keys are pulled to every device you sign in from — and pushed back whenever they change. Every save is <b>verified</b>: the account is read back before "saved" is claimed, so a save that silently failed is impossible.</div>' +
+      '<div class="sub" style="margin-top:4px">☁️ Account holds: ' +
+        (CloudCreds.cloud ? (CloudCreds.cloud()["cd-turn"] ? '<b style="color:#31c48d">🔑 TURN key ✓</b>' : '<span style="color:var(--warn)">🔑 TURN key — nothing saved yet</span>') : '') +
+        ' · ' +
+        (CloudCreds.cloud ? (CloudCreds.cloud()["cd-stream"] ? '<b style="color:#31c48d">📡 stream setup ✓</b>' : '<span style="opacity:.75">📡 stream setup — nothing saved yet</span>') : '') +
+        '. ' + (st.lastSync ? 'Last real sync ' + esc(when) + '.' : 'Nothing stored yet — save once (⚙ Settings → Save) and every future device gets it.') + '</div>' +
+      (st.reason ? '<div class="warn" style="margin-top:6px">⚠️ ' + esc(st.reason) + "</div>" : "") +
+      '<div id="cloudDiagOut"></div>' +
+      '<div class="sub" style="margin-top:4px;opacity:.55">cloud-creds ' + esc(st.build || "") + " — if this line does not say v54, this browser is still running an older cached build: reload the page once.</div>";
     $("#cloudSyncNow").onclick = async () => {
-      const ok = await CloudCreds.pull();
+      const btn = $("#cloudSyncNow");
+      if (btn) { btn.disabled = true; btn.textContent = "🔄 Syncing…"; }
+      /* V54: syncNow reads the account FIRST, pushes only what really
+         differs, and verifies every push by reading it back — so each
+         toast below is a statement about the account, not a guess. */
+      const r = await CloudCreds.syncNow();
       const st2 = CloudCreds.status();
-      toast(ok && !st2.missing ? "☁️ Synced — credentials on this device are current." : "Sync problem: " + (st2.reason || "unknown"), ok ? "ok" : "err", 8000);
+      if (btn) { btn.disabled = false; btn.textContent = "🔄 Sync now"; }
+      if (!r || !r.ok || st2.missing) {
+        toast("Sync problem: " + (st2.reason || r && r.reason || "unknown — press 🔍 Diagnose next to this button"), "err", 10000);
+      } else if (r.pushFailed && r.pushFailed.length) {
+        toast("⚠️ Pulled the account's credentials, but could not upload this device's " + r.pushFailed.join(", ") + " — " + (st2.reason || r.reason || "try signing in to the portal again"), "err", 12000);
+      } else if (r.pushed && r.pushed.length) {
+        toast("☁️ Synced — uploaded " + r.pushed.join(", ") + " to your account and verified it by reading it back.", "ok", 9000);
+      } else {
+        toast("☁️ Synced — credentials on this device are current with your account (fresh read: nothing to upload).", "ok", 8000);
+      }
       renderCloudSyncCard();
+    };
+    /* V54 (round 18, item 4): 🔍 Diagnose — the expert in the card. Runs
+       the exact chain a real sync uses, stops at the first broken link,
+       names it and prints the remedy. When this device holds real
+       credentials, the final step is a genuine VERIFIED re-push — which
+       is also the healing action for a half-migrated database. */
+    $("#cloudDiag").onclick = async () => {
+      const btn = $("#cloudDiag"), out = $("#cloudDiagOut");
+      if (btn) { btn.disabled = true; btn.textContent = "🔍 Diagnosing…"; }
+      if (out) out.innerHTML = '<div class="sub" style="margin-top:8px">🔎 Running the sync checks…</div>';
+      try {
+        const steps = await CloudCreds.diagnose();
+        const lastOk = steps.length ? steps[steps.length - 1].ok : false;
+        const lines = steps.map((stp) =>
+          '<div style="margin-top:5px">' + (stp.ok ? "✅" : "❌") + " <b>" + esc(stp.name) + "</b>" +
+          (stp.detail ? " — " + esc(stp.detail) : "") +
+          ((!stp.ok && stp.remedy) ? '<div class="sub" style="margin:2px 0 0 20px">➜ ' + esc(stp.remedy) + "</div>" : "") +
+          "</div>").join("");
+        if (out) out.innerHTML =
+          '<div style="margin-top:10px;padding:10px 14px;border:1px solid rgba(120,120,120,.35);border-radius:10px;background:rgba(120,120,120,.06)">' +
+          "<b>🔍 Cloud sync diagnosis</b>" + lines +
+          (lastOk
+            ? '<div class="sub" style="margin-top:8px">✅ Everything checked out — cloud sync is fully working on this device.</div>'
+            : '<div class="sub" style="margin-top:8px">⚠️ Fix the failed step above (its remedy is printed under it), then press 🔄 Sync now.</div>') +
+          "</div>";
+        if (!lastOk) toast("⚠️ Cloud sync problem found — the diagnosis is shown below the buttons.", "err", 10000);
+      } catch (e) {
+        if (out) out.innerHTML = "";
+        toast("Diagnose failed: " + (e && e.message ? e.message : e), "err", 8000);
+      }
+      if (btn) { btn.disabled = false; btn.textContent = "🔍 Diagnose"; }
     };
     $("#cloudUnlink").onclick = () => {
       if (!confirm("Unlink cloud sync on this device? Your saved credentials stay; they just stop following your login.")) return;
@@ -4378,10 +4520,31 @@ async function restoreCredsFromCloud() {
   const bits = [];
   if (Store.get("cf_key", "")) bits.push("TURN key ✓");
   if ((Store.get("tablet_live", {}) || {}).gateway) bits.push("streaming gateway ✓");
-  toast("☁️ Restored from your account" + (bits.length ? " — " + bits.join(" · ") : " (nothing saved there yet — save once and every future device gets it)."), "ok", 10000);
+  toast(bits.length
+    ? "☁️ Restored from your account — " + bits.join(" · ") + "."
+    : "☁️ Your account has nothing saved yet. Enter the TURN key (or the stream setup) on THIS device and press Save — it uploads automatically (verified by reading it back) and every future device restores it. If you EXPECTED something here, press 🔍 Diagnose in the ☁️ Cloud sync section — it names the exact broken step.", "ok", 14000);
 }
 if ($("#tlRestore")) on("#tlRestore", "click", restoreCredsFromCloud);
 if ($("#btnRestoreCreds")) on("#btnRestoreCreds", "click", restoreCredsFromCloud);
+
+/* V50 (r14 item 1): the Restore button that lives right next to the TURN
+   Token ID / API token boxes. Same cloud pull, but it ALWAYS refreshes the
+   two boxes (not only when this device was empty) and explains itself. */
+if ($("#btnRestoreCfKey")) on("#btnRestoreCfKey", "click", async () => {
+  if (!window.CloudCreds) { toast("Cloud sync is not available in this build.", "err"); return; }
+  if (!CloudCreds.signedIn()) {
+    toast("Not linked yet. Open ☁️ Cloud sync below, enter your ADEWALE CLASSROOM email and password once — after that this button (and Settings itself) brings the key back on every device.", "err", 12000);
+    return;
+  }
+  toast("☁️ Pulling your TURN key from the cloud…", "ok", 4000);
+  const ok = await CloudCreds.pull();
+  const st = CloudCreds.status();
+  if (!ok || st.missing) { toast("Restore problem: " + (st.reason || "unknown"), "err", 10000); return; }
+  prefillTurnBoxes();
+  try { renderCloudSyncCard(); } catch (e) {}
+  if (Store.get("cf_key", "")) toast("☁️ TURN Token ID + API token restored into the boxes above — press ⚡ Generate whenever you need fresh relay credentials.", "ok", 9000);
+  else toast("☁️ Restored — but no TURN key is saved in your account yet. Fill the boxes once and press ⚡ Generate; every future device then restores it automatically.", "ok", 12000);
+});
 
 /* V47: never let a live social stream die silently with a closed tab */
 window.addEventListener("beforeunload", (e) => {
