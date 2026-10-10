@@ -1061,3 +1061,464 @@ for the new versions; test_r14_portal.js (88 checks) added and registered.
      13-assertion behavioral run including the pending-OWNER engagement
      read, the pending-tutor block, tc_ref_labels staff-only, and
      publish-by-default vs explicit-draft visibility)
+
+# ROUND 15 AUDIT (2026-10-09)
+
+The user's eleven-item report, and what each turned out to be.
+
+## Items 2–5 — "linked · name unavailable" ON THE STUDENT PORTAL
+
+Round 14 fixed the staff side; the student side still broke because the
+link-name lookup reads the engagements TABLE through RLS, and for these
+family accounts that read came back empty while the shelf rows themselves
+stayed visible through the family policy. V50's tc_ref_labels() fallback
+returned {} for non-staff, so it could not rescue them. **V51 makes
+tc_ref_labels() role-aware**: a learner receives the id→name map of
+exactly the engagements they are a member of (the same predicate that
+lets them see the shelf rows at all — proven in the harness as the
+learner resolving their own class name while NOT receiving other
+classes'), and a parent gets their children's. Name resolution no longer
+depends on the engagements table's SELECT policy. On top of the fix, all
+four shelf pages are now ROLE-AWARE: learners and parents get
+**shelf-student.js** — a studying view (search, subject/kind filters,
+Open buttons that normalise Drive links, due chips, lesson numbering,
+honest empty states) instead of the staff database table.
+
+## Item 8 — Digital library, GOSA deep-study implemented
+
+Studied GOSA's digital_library.html in full (authoring card, five
+question types, tolerant marking, attempt limits, linked CBT, points
+accumulation, report-card push). Implemented for ADEWALE CLASSROOM:
+library_items gains instructions / due date / max score / attempt limit
+/ questions JSONB / has_quiz / linked-CBT code; a new
+**library_quiz_attempts** table records each learner's auto-marked
+attempt (own-insert, own+children read, staff read all — RLS-refused
+foreign inserts asserted in the harness); **library-quiz.js** carries
+the engine — quiz modal with mcq / multiple-response / true-false /
+short-answer / keyword questions, GOSA-tolerant marking (an answer typed
+as a LETTER or POSITION marks correctly), attempt limiting, best-attempt
+aggregation; library.html gains the teacher authoring card with the
+question builder + edit picker, and the **🏅 points workbench** (best
+attempt per learner per reading, linked-CBT best attempts merged,
+Σ totals, 🚀 push into the scoresheet as continuous-assessment
+evidence with source 'library_points').
+
+## Item 10 — Assignments, GOSA deep-study implemented
+
+Studied GOSA's assignments.html (CBT-assignment auto-fill V12.11, the
+student points explainer, the points workbench). Implemented:
+**assignment-points.js** — ✍️ Score class on any homework row scores
+the whole class in one modal, AUTO-FILLED from each learner's best CBT
+attempt scaled to the assignment's maximum (raw 15/20 → 7.5/10 at max
+10) for CBT assignments, manual for physical; per-learner rows are
+written so the class-wide row is never overwritten. The **term score
+sheet** renders every assignment as a column and every learner as a row
+with totals and %; Σ Totals is the condensed view; 🚀 pushes cumulative
+homework points into the scoresheet (source 'homework_points'); CSV
+export included. The page gains the CBT-homework guide with the
+unambiguous badge table (🟢 CBT homework many-per-term cumulative · 🔵
+graded quiz once-per-term → scoresheet · 🟣 practice never graded) and
+the student explainer "🏆 Why your homework earns points" with a live
+my-points panel fed by tc_my_work.
+
+## Item 1 — "Last backup: never"
+
+The timestamp lived in localStorage — PER DEVICE — and the cloud-side
+Drive timestamp was never read by the card. Backups taken on the tablet
+read as "never" on the laptop. practice_settings gains **last_backup_at**
+(the studio record): every backup path stamps it (local download and
+Google Drive), and the card shows the newest of local / studio / Drive
+with source and staleness ("35 days ago — take a fresh one"). A true
+"never" now explains exactly what to do.
+
+## Item 7 — the TURN key never reached the cloud (root cause found)
+
+The Settings save handler NEVER read the two TURN boxes — they were
+persisted only when ⚡ Generate ran, so a hand-typed key+token lived in
+the input boxes alone: never in Store, never pushed, and every other
+device correctly said "nothing saved there yet". And "last sync = login
+time" was pull() stamping lastSync on every read — including reads of an
+empty account. Fixes: Save now persists the boxes and pushes cd-turn
+immediately (a deliberate clear pushes the tombstone); pull() only
+counts as a sync when data actually moved; the sync card shows WHAT the
+account holds ("🔑 TURN key ✓/nothing yet · 📡 stream setup ✓/nothing
+yet"); the empty-account restore message names the exact remedy.
+
+## Item 6 — Tablet Live modal, field by field
+
+The modal's bare labels are gone: a 3-things orientation line, then
+every field (① gateway URL ② destinations, gateway secret, stream name,
+format, frame rate, save/restore/remember, start/stop/check) carries a
+description with a copy-paste example and explicit ✅ right / ❌ wrong
+guidance, cross-linked to the Social centre's full guide, click-paths
+and troubleshooting table.
+
+## Item 9 — complete-schema.sql proven self-contained
+
+New tools/audit_selfcontained.py walks EVERY database/*.sql file,
+extracts each created object (tables, functions, policies, indexes,
+triggers, columns) and verifies it exists in complete-schema.sql —
+currently 884 objects, SELF-CONTAINED ✅, and the check runs inside
+test_r15_portal so a future migration that forgets the splice fails the
+battery. (The audit also caught this round's one real splice regression
+within minutes: a bad tail-splice had silently dropped the V50 section —
+rebuilt and re-proven.)
+
+## Item 11 — every file, both repos
+
+Portal V51 (pages ?v=51, shell tc-shell-v20-20261009): crud.js,
+shelf-student.js (new), library-quiz.js (new), assignment-points.js
+(new), drive-sync.js, the 4 shelf pages + library.html + assignments.html
++ admin-data.html, database/v51 (new) + complete-schema.sql,
+tools/v51_behavior.sql + audit_selfcontained.py (new) + harness scenario
+10. ClassDeck v14.6.0 build 20 (pages ?v=54, sw
+hmg-classdeck-v14.6.0-family-labels-quiz-points-turnsave): teach.js,
+cloud-creds.js, teach.html, version.json, sw.js. Twin synced
+byte-identical including tools/.
+
+## Round-15 QA tally (per repo, both repos green)
+
+    24 suites — 1007/1007 per repo × 2 repos
+    (+85 round-15 portal checks; PG harness now 10 scenarios — V51's is a
+     10-assertion behavioral run incl. the learner's own-class name
+     resolution, the parent path, foreign-attempt RLS refusal, and the
+     owner-settable last_backup_at)
+
+# ROUND 16 AUDIT (2026-10-10)
+
+The user's eleven-item report, and what each turned out to be.
+
+## Item 1 — Timezone desk: BOTH times, everywhere, forever
+
+The blueprint is now **tz.js**, the timezone truth engine, plus **V52**
+(tc_my_tz): the database answers, in one security-definer call, the
+studio's home zone (practice_settings.timezone → the is_default desk
+entry → Africa/Lagos) and the signed-in viewer's OWN zone (their desk
+entry → their role-table timezone column → null, and the client then
+falls back to the browser zone — pre-V52 databases degrade gracefully
+to "correct for the viewer", never broken). Every schedule-ish page —
+dashboard, sessions, bookings, the LMS/library/resources/e-resources/
+homework tables — renders datetimes through TZ.dualHtml(): 🏠 studio
+time · 👤 viewer time (+/−Nh badge), and ONLY when the two zones
+actually differ, so a Lagos–Lagos pair sees exactly what it always saw.
+The dashboard's Next-class card and the homework CBT opens/closes show
+the same dual line, primed BEFORE first paint. timezones.html gains the
+**meeting planner** (enter a time in ANY zone — it can be the
+student's — and read that moment in every studio zone at once, with
+🟢/🔴 working-hours flags, blackout notes, DST-correct in both
+directions via a drift loop), a **copy dual-time-line** button for
+pasting "4:00 PM Lagos = 9:00 AM Toronto" into a message, and **live
+1-second world clocks** — all of which re-prime themselves whenever a
+desk entry is edited above them (MutationObserver → TZ.refresh()).
+
+## Items 2–6 — the banner/cells family, root-caused and closed
+
+The Edit-button clue was decisive: Edit fixed the names because
+openForm does a FRESH table read, so the bug was never RLS — it was
+**crud.js's _refCache caching the EMPTY engagements map forever**. The
+first read ran before supabase-js finished restoring the session, RLS
+as anon returns 0 rows — not an error — so V13.1's error path never
+fired and the empty map was cached as truth. The r16 fix: renderList
+waits for auth.getSession() before the first read; an empty result now
+consults tc_ref_labels() before giving up, is marked __empty and kept
+separately (_refEmpty — NEVER cached), and _scheduleRefRetry()
+repaints every mounted list 2.5s later; onAuthStateChange purges all
+caches, so the anon→user transition can never leave stale empties.
+The student-portal half was a second race: App.currentRole arrived
+AFTER the pages' 4-second role-wait loop, the learner fell through to
+the staff crud table and saw the very banners the split prevents. The
+five pages now decide with **App.detectRole()** (10s wait →
+tc_current_role RPC tiebreak → cached-profile fallback) — truth, not
+timing. Family cells are viewer-aware: read-only viewers see "🎓 your
+class" for engagements and "linked ✓" for other refs, never "linked ·
+name unavailable", never ⚠, and both ref banners are suppressed for
+them entirely. The student shelf also gained a class filter (GOSA's
+class scoping, better — labels come from the role-aware RPC).
+
+## Item 7 — complete-schema.sql is all-inclusive
+
+V52 spliced at the tail with its own banner; tools/audit_selfcontained.py
+now proves **887 objects** (V52's tc_my_tz + tc_last_backup included),
+check_schema_order stays green, and the PG harness gained scenario 11
+(tcv_v52): an 8-assertion behavioral run — the learner's home+mine in
+one call, the owner's null mine, the desk entry outranking the
+role-table column, the anonymous home, and tc_last_backup answering
+for ANY authenticated member — on top of the 10 legacy scenarios, all
+clean on FRESH, LEGACY and RE-RUN databases.
+
+## Items 8+9 — ClassDeck cloud credentials, the silent-failure autopsy
+
+Device B honestly said "nothing saved yet" because **the account never
+received the key**: push() built its row with state.uid BEFORE any
+request ran, and the uid was only resolved lazily inside the request
+helpers — so the FIRST push of a session uploaded user_id NULL, the
+owner-only RLS policy refused it with 403, and push() returned false
+into the void. The key looked saved on device A while the cloud stayed
+empty. push() now resolves the token+uid FIRST (with a JWT-sub
+fallback for session shapes without user.id), and no TURN-key push is
+silent anymore: Generate AWAITS its push and toasts failures with the
+remedy, typed-key Save does the same. pull() matched rows to channels
+by exact key name only — any row saved under a different label was
+ignored; channels now resolve **by name OR data shape** (a value with
+cf_key/cf_token/relay_servers IS the cd-turn channel whatever the row
+is called). And "Sync now" only pulled — after generating credentials
+it reported "synced" while the new key never left the device and
+"last sync" stayed "not yet". **syncNow()** is a real two-way sync:
+channels this device holds that the cloud lacks — or holds differently
+(diffed against the exact cloud payload pull kept) — are pushed first,
+then pull brings back what THIS device lacks; a successful push now
+stamps the sync clock and the Account-holds line the moment it lands.
+
+## Item 10 — "Last backup: never", the anon race one page later
+
+The r15 reader ran ONCE at page load, usually before the session was
+restored: the practice_settings select ran as anon, RLS returned NULL
+(not an error), and the card froze at "never" on every device except
+the one that took the backup. The card is now a named, reusable
+**renderLastBackup()**: session-gated, served by the new
+security-definer **tc_last_backup()** RPC (any authenticated member
+reads the studio-wide truth regardless of practice_settings RLS — with
+the direct select kept as a pre-V52 fallback), re-rendered on every
+auth change (INITIAL_SESSION/SIGNED_IN/TOKEN_REFRESHED) and after
+EVERY backup path, merging local + studio + Drive timestamps (newest
+wins, tooltip names the source). Every backup path also stamps
+**backup_path** (V52 column) — "device: tutoring-connect-backup-….json"
+or "drive: school-connect-backup-….json" — so the card can say not
+just WHEN but WHERE the newest archive lives.
+
+## Round-16 QA tally (per repo, both repos green)
+
+    25 suites — 1110/1110 per repo × 2 repos
+    (+103 round-16 portal checks; PG harness now 11 scenarios — V52's
+     is an 8-assertion behavioral run incl. the learner home+mine
+     resolution, desk-entry precedence, the anonymous home, and
+     tc_last_backup for any authenticated member)
+
+## Round-16 versions
+
+Portal ?v=52 / sw tc-shell-v21-20261010; deck ?v=55 /
+hmg-classdeck-v14.7.0-turnsync-truth / version.json 14.7.0 build 21.
+Twins synced byte-identical including tools/ (TC keeps only its
+generator fixtures-csv extra, which never flows back to AC).
+
+
+---
+
+# ROUND 17 AUDIT (2026-10-10)
+
+Scope: the user's seven items — (1) deck device B cannot restore a TURN
+key saved on device A; (2) "sync now" claims synced while "last sync"
+never moves, then Save fails "the cloud copy failed: unknown"; (3)
+admin-data "Last Backup" stuck on "never"; (4) teacher isolation +
+admin 360° monitors for tutors, students and parents; (5) audit every
+r16-and-prior feature; (6) expert re-understudy of every page and
+process; (7) every file in both repos updated.
+
+## Item 1 — device B "nothing saved yet": root cause chain
+
+The r16 fix made push() resolve uid first and await its callers — but
+three failure classes survived:
+
+- **Write path (the big one).** The REST upsert to `user_settings`
+  failed for reasons the client swallowed whole: RLS/permission errors,
+  a pre-V53 database without the table, a shape mismatch. The client
+  surfaced "the cloud copy failed: unknown" and — worse — pull()
+  compared cloud vs local with raw `JSON.stringify`, so **jsonb key
+  order** alone could report "credentials current" while the account
+  held nothing device B could restore.
+- **Read path.** pull() only recognised rows by legacy key names; a
+  shape change meant "Your account has nothing saved yet" even when the
+  row existed.
+
+**Fix (server + client, self-contained):** V53 adds security-definer
+`tc_set_user_setting`/`tc_get_user_settings` (owner-scoped,
+authenticated-only). `cloud-creds.js` writes and reads RPC-first (REST
+table-GET fallback for pre-V53 databases), reads and surfaces the real
+PostgREST error body (`message` + `hint` — "unknown" is gone),
+canonicalises (deep key-sort) before any comparison, and stamps the
+sync clock + "Account holds" the moment a push lands. teach.js re-renders
+the sync card after every Generate/Save outcome and states plainly when
+the device has no portal account linked. Verified by PG harness
+scenario 12: RPC round-trip, cross-account isolation (learner cannot
+read tutor's key and vice versa), pre-V53 fallback path.
+
+## Item 2 — "synced - credentials current" + "last sync not yet"
+
+Both symptoms were one bug: syncNow's diff was order-sensitive string
+comparison, and a successful push never touched `state.lastSync` (only
+pull did). With canon() comparison + stampSync() on push success, the
+card's "last sync" updates on every successful write and the label
+cannot claim currency it does not have. Save failures now carry the
+actual server message plus the remedy (press sync now / check link).
+
+## Item 3 — admin-data "Last Backup: never"
+
+The r16 reader was honest, but the WRITER never ran: the download path
+called `stampBackup()` only on a code path that also assumed a plain
+`update()` — and both toolbar buttons ("Full backup" / "Restore")
+referenced `window.DataTools`, **which was never defined** — silent
+ReferenceError, no backup, no stamp, "never" forever. Fixed: `DataTools`
+is defined and wired to the real sealed-download and restore readers;
+the stamp is RPC-first via V53 `tc_stamp_backup` (manager-guarded,
+upserts practice_settings including the insert case) with an UPDATE
+fallback; a failed stamp prints its reason instead of vanishing. The
+Drive path stamps through the same RPC. A new auditor
+(`tools/audit_handlers.py`) now sweeps every page of both trees for
+dangling inline handlers so this class of bug cannot ship again — run
+it, it is green.
+
+## Item 4 — tutor isolation + the admin 360° monitors
+
+Server (V53): tutor-scoped read policies on `library_items`,
+`eresources`, `resources`, `lms_lessons` (own rows + taught engagements
++ the shared shelf; family reads preserved); manager-only
+`tc_tutor_monitor(uuid)` and `tc_parent_monitor(uuid)` aggregates.
+Tutor coverage: profile, subjects taught, students taught, sessions
+taken, recent + upcoming sessions, bookings completed / ongoing /
+earnings, topics covered, CBTs created, assignments set, library items
+authored, **salary payment history**. Parent coverage: children with
+classes and tutors, invoices, payment history, upcoming sessions.
+Client: `assets/js/staff-monitor.js` — a 📊 Monitor row action on
+Tutors and Parents opens a drawer with tiles per section, honest empty
+states ("No records yet — nothing of this kind exists"), and visible
+error cards if the RPC refuses. Learners/parents/tutors cannot call the
+monitor RPCs (server-refused, verified in scenario 12). Teachers
+continue to see only their own + assigned rows (r14 scoping kept).
+
+## Items 5+6 — the self-audit: real bugs found and fixed
+
+- **tz.js workStatus mixed clocks.** `m >= fm && p.minutes <= tm`
+  compared the wrapped minute against the raw one — 08:00 counted as
+  INSIDE 09:00–17:00, and 01:00 counted outside a 22:00–02:00 window.
+  Fixed to one clock (`m >= fm && m <= tm`); unit-proven 10/10 in the
+  r17 suite including past-midnight and non-working days.
+- **crud.js 3-arg _cell.** openRecord and printList dropped the new
+  viewerCanWrite argument, so staff saw family-safe labels ("🎓 your
+  class") in the edit drawer and printouts. Both now pass `can`
+  (printList takes it as a parameter; renderList supplies it).
+- **DataTools undefined** (item 3 above — found by the new handler
+  auditor, then fixed).
+- r16 features re-audited and kept sound: detectRole role-race wait
+  loop, renderLastBackup auth re-render, the empty-ref retry + auth
+  purge in crud.js, sessions dual-clock banner, the r16 deck truth
+  toasts. The r16 QA suite (104 checks) still passes unmodified apart
+  from whitelist widening.
+
+## Item 7 + QA tally
+
+Every file updated in both repos (twin sync verified by the r8 twin
+check + `diff -rq`); versions: portal `?v=53` / sw
+`tc-shell-v22-20261010`; deck `?v=56` /
+`hmg-classdeck-v14.8.0-turnsync-rpc` / version.json 14.8.0 build 22
+(feature tags `v14.8-*`). New QA suite `test_r17_portal.js` (70
+checks: V53 migration shape, RPC-first client patterns, monitor UI,
+the r16-fix pins with the TZ engine actually executed, version
+truth). Battery: 26 suites, **1181/1181 per repo, both repos, run
+twice**. PG harness: **12/12 scenarios clean**. Workspace budget
+checked and under the cap.
+
+
+---
+
+# ROUND 18 AUDIT (2026-10-10)
+
+Scope: the user's seven items — (1) sync-now toast lies + "last sync
+not yet" + Save "cloud copy failed: unknown"; (2) device B restore
+"nothing saved yet"; (3) Google Drive backup progress before
+completion; (4) the TURN-key issue as a whole; (5) audit every enhanced
+pre-existing + new feature; (6) expert re-understudy of every page and
+process; (7) every file across all repos.
+
+## Items 1, 2 and 4 — the TURN key: the full autopsy
+
+The reported trio (toast "synced — credentials current" while the card
+said "not yet", Save failing "unknown", device B "nothing saved yet")
+was reproduced against the round-16 code and root-caused on THREE
+levels:
+
+1. **DELIVERY (why fixes looked unfixed):** the deck service worker
+   served the CACHED page on every visit (stale-while-revalidate for
+   HTML, returning `cached` immediately). The visit right after a
+   redeploy still ran the PREVIOUS build — so the r17 fixes could
+   genuinely ship while the user's next session ran r16 and reproduced
+   the r16 bugs. The handler also fetched every cached resource twice.
+   **Fix:** pages are network-first (cache only when offline), the
+   double-fetch is gone, `cloud-creds.js` joined the precache shell,
+   and the sync card prints its module build (`v54-r18-verified-sync`)
+   so a stale browser is identifiable at a glance.
+2. **REPORTING (the r16 "unknown"):** r16's push() swallowed exceptions
+   (`catch (e) { return false; }`) and left `state.reason` empty on any
+   non-404 HTTP error — a 42501 RLS refusal surfaced as "unknown".
+   **Fix:** every failure path funnels through `fail(stage, message)`
+   with the HTTP status and the server's error body (`message`, `hint`,
+   `details`, `error_description`); "unknown" is structurally dead.
+3. **TRUTH (the deepest fix):** no code path ever CONFIRMED the account
+   held what a write claimed. **Fix — the verified-sync engine:** every
+   write is followed by an immediate read-back and canonical
+   comparison; a push only reports success when the account verifiably
+   holds the snapshot. "Saved" now means "saved and verified".
+
+Additional structural fixes found during the autopsy: Save fires TWO
+pushes of the same channel (relay push + key push) — now serialized
+through a per-channel queue; concurrent token refreshes can trip
+Supabase's refresh-token rotation-reuse detection and revoke the whole
+session (portal logout!) — the refresh is now single-flight; the sync
+clock lived only in memory so a reload reset "last sync" to "not yet" —
+the verified stamp is persisted (`cd-creds-sync-stamp`) and seeds the
+next load; syncNow diffed against a possibly-stale in-memory copy — it
+now reads the account FIRST and pushes only real differences.
+
+**🔍 Diagnose** (new): a button on the sync card that walks the exact
+chain a real sync uses — session → endpoint → token → database read →
+verified write — stops at the first broken link, and prints the exact
+remedy (including which SQL pack to run). With real local credentials
+the write step is a genuine verified re-push: the healing action.
+
+**Behavioral proof:** the round-18 QA suite runs the engine against a
+fake PostgREST — verified write, server-ack-but-dropped (correctly
+FAILS with a read-back reason), 42501 with the RLS message + hint
+surfaced, single-flight (two racing pushes → ONE refresh), syncNow
+fresh-read diff, pre-V53 fallback still verifying, diagnose paths,
+persisted-stamp seeding, signOut clearing the claim. The round-11 suite
+was upgraded to a read-write mock (a real database shows writes to
+subsequent reads) and its tombstone/refresh checks now pass through the
+verified path.
+
+## Item 3 — Drive backup progress
+
+`fetch()` cannot report upload progress — the teacher watched a
+motionless "Uploading…" line. The upload is now XHR with
+`upload.onprogress`: a staged panel on admin-data (Authorise → Collect
+"table i of n" → Upload with live MB counters and a percentage →
+Record), the button locks while running, and the completion line
+carries rows + size + duration. The AUTOMATIC background sync (no
+button pressed) shows the same truth as a floating pill, and
+restore/recovery report per-table import progress. `collectFull` and
+`importArchive` grew optional per-table callbacks
+(backward-compatible).
+
+## Items 5+6 — the self-audit
+
+- `audit_handlers.py` re-run green (new inline handlers all resolve).
+- The renewal path (`maybeRenewCloudflareRelay`) pushes through the
+  verified queue — renewed credentials roam verified too.
+- A successful read now persists the FRESH account-holds (a credential
+  cleared on device B stops showing ✓ on device A after a reload —
+  found and fixed during this audit).
+- The r16/r17 QA suites were re-run and re-pinned where the r18
+  architecture legitimately changed the shape (queue wrapper,
+  `sameCanon` helper, pull-first syncNow); the r11 mock was upgraded to
+  database-real read-write behavior.
+- PG harness unchanged: 12/12 (no DB change this round — V53 remains
+  the server truth).
+
+## Item 7 + QA tally
+
+Every file updated in both repos (twin sync verified by the r8 twin
+check + `diff -rq`). Versions: deck `?v=57` / sw
+`hmg-classdeck-v15.0.0-r18-verified-sync-netfirst` / version.json
+15.0.0 build 23 (features `v15.0-*`); portal admin-data assets `?v=54`
+/ sw `tc-shell-v23-20261010`. New suite `test_r18_portal.js` (87
+checks incl. the behavioral engine test). Battery: 27 suites, 1268
+checks per repo, both repos, run twice. Workspace budget checked and
+under the cap.
