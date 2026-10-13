@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+
+# ⚠ HISTORICAL ONE-TIME PAGE BUILDER — DO NOT RUN
+# This tool generated these pages ONCE, long ago. The pages have since been
+# hand-maintained through dozens of audit rounds (security, download
+# hardening, feature work). Running this script would OVERWRITE those fixes
+# with stale templates. It is kept for reference only.
 from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 PAGES = {

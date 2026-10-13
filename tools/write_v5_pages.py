@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+
+# ⚠ HISTORICAL ONE-TIME PAGE BUILDER — DO NOT RUN
+# This tool generated these pages ONCE, long ago. The pages have since been
+# hand-maintained through dozens of audit rounds (security, download
+# hardening, feature work). Running this script would OVERWRITE those fixes
+# with stale templates. It is kept for reference only.
 import sys
 sys.path.insert(0, '/home/user/tutoring-connect/tools')
 from rebuild_pages import page, feature_card
